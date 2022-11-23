@@ -15,8 +15,8 @@ func RequestLoggerHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Allowed only POST method", http.StatusBadRequest)
-		log.Error.Printf("Not alowed method %v", r)
+		log.Error.Printf("Not allowed method %v", r)
 		return
 	}
-	log.Info.Printf("Incomming request %v", r)
+	log.Info.Printf("Incoming request %v %v", r.Method, r.URL)
 }
