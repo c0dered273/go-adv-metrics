@@ -60,7 +60,7 @@ func sendUpdate(client *http.Client, endpoint string) {
 	log.Info.Printf("Metric update success %v %v", response.Request.Method, response.Request.URL)
 }
 
-func updateStats(metricUpdate *MetricUpdate, ctx context.Context) {
+func updateMetrics(metricUpdate *MetricUpdate, ctx context.Context) {
 	metricUpdate.Set(metrics.GetAllMetrics())
 
 	ticker := time.NewTicker(pollInterval)
@@ -104,16 +104,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	log.Info.Println("Metrics agent started")
-	client := http.Client{}
 	transport := &http.Transport{}
 	transport.MaxIdleConns = 20
+	client := http.Client{}
 	client.Transport = transport
 	client.Timeout = connectionTimeout
 
-	var statUpdate MetricUpdate
-	go updateStats(&statUpdate, ctx)
+	var metricUpdate MetricUpdate
+	go updateMetrics(&metricUpdate, ctx)
 	time.AfterFunc(100*time.Millisecond, func() {
-		sendAllMetrics(&client, &statUpdate, ctx)
+		sendAllMetrics(&client, &metricUpdate, ctx)
 	})
 
 	<-shutdown
