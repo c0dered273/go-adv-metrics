@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -51,12 +50,7 @@ func sendUpdate(client *http.Client, endpoint string) error {
 	if err != nil {
 		return err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Error.Println("Unable to close response body", err)
-		}
-	}(response.Body)
+	defer response.Body.Close()
 	log.Info.Printf("Metric update success %v %v", response.Request.Method, response.Request.URL)
 	return nil
 }
