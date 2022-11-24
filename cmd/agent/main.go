@@ -40,60 +40,62 @@ func (m *MetricUpdate) Get() []metrics.Metric {
 	return m.value
 }
 
-func sendUpdate(client *http.Client, endpoint string) {
+func sendUpdate(client *http.Client, endpoint string) error {
 	request, err := http.NewRequest(http.MethodPost, endpoint, nil)
 	if err != nil {
-		log.Error.Fatal(err)
+		return err
 	}
 	request.Header.Set("Content-Type", "text/plain")
 
 	response, err := client.Do(request)
 	if err != nil {
-		log.Error.Printf("Update request unsuccessful %v", err)
+		return err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			log.Error.Fatal("Unable to close response body", err)
+			log.Error.Println("Unable to close response body", err)
 		}
 	}(response.Body)
 	log.Info.Printf("Metric update success %v %v", response.Request.Method, response.Request.URL)
+	return nil
 }
 
-func updateMetrics(metricUpdate *MetricUpdate, ctx context.Context) {
-	metricUpdate.Set(metrics.GetAllMetrics())
-
+func updateMetrics(metricUpdate *MetricUpdate, ctx context.Context, wg *sync.WaitGroup) {
 	ticker := time.NewTicker(pollInterval)
-	for range ticker.C {
+	defer ticker.Stop()
+	for {
+		metricUpdate.Set(metrics.GetAllMetrics())
 		select {
+		case <-ticker.C:
+			continue
 		case <-ctx.Done():
+			wg.Done()
 			return
-		default:
-			metricUpdate.Set(metrics.GetAllMetrics())
 		}
 	}
 }
 
-func sendAllMetrics(client *http.Client, metricUpdate *MetricUpdate, ctx context.Context) {
-	metricsSlice := metricUpdate.Get()
-	if len(metricsSlice) != 0 {
-		for _, m := range metricsSlice {
-			endpoint := updateEndpoint + m.String()
-			sendUpdate(client, endpoint)
-		}
-	}
-
+func sendAllMetrics(client *http.Client, metricUpdate *MetricUpdate, ctx context.Context, wg *sync.WaitGroup) {
 	ticker := time.NewTicker(reportInterval)
-	for range ticker.C {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			metricsSlice := metricUpdate.Get()
+	defer ticker.Stop()
+	for {
+		metricsSlice := metricUpdate.Get()
+		if len(metricsSlice) != 0 {
 			for _, m := range metricsSlice {
 				endpoint := updateEndpoint + m.String()
-				sendUpdate(client, endpoint)
+				err := sendUpdate(client, endpoint)
+				if err != nil {
+					log.Error.Printf("Unable to send update request %v", err)
+				}
 			}
+		}
+		select {
+		case <-ticker.C:
+			continue
+		case <-ctx.Done():
+			wg.Done()
+			return
 		}
 	}
 }
@@ -105,18 +107,22 @@ func main() {
 
 	log.Info.Println("Metrics agent started")
 	transport := &http.Transport{}
-	transport.MaxIdleConns = 20
+	transport.MaxIdleConns = 5
 	client := http.Client{}
 	client.Transport = transport
 	client.Timeout = connectionTimeout
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	var metricUpdate MetricUpdate
-	go updateMetrics(&metricUpdate, ctx)
+	go updateMetrics(&metricUpdate, ctx, &wg)
 	time.AfterFunc(100*time.Millisecond, func() {
-		sendAllMetrics(&client, &metricUpdate, ctx)
+		sendAllMetrics(&client, &metricUpdate, ctx, &wg)
 	})
 
 	<-shutdown
 	cancel()
+	wg.Wait()
 	log.Info.Println("Metrics agent shutdown")
 }

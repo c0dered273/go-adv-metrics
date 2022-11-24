@@ -8,11 +8,9 @@ import (
 func DefaultNotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, ``, http.StatusNotFound)
 	log.Error.Printf("Path not found %v", r)
-
 }
 
 func RequestLoggerHandler(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Allowed only POST method", http.StatusBadRequest)
 		log.Error.Printf("Not allowed method %v", r)
