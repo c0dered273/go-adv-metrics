@@ -88,6 +88,7 @@ func TestMetricsHandler_ServeHTTP(t *testing.T) {
 			h := MetricsHandler{}
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
+			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 		})
 	}
