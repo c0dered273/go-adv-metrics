@@ -20,9 +20,10 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	http.HandleFunc("/", handler.DefaultNotFoundHandler)
-	http.HandleFunc("/update/", handler.RequestLoggerHandler)
-	server := http.Server{Addr: serverAddr + serverPort}
+	server := &http.Server{
+		Addr:    serverAddr + serverPort,
+		Handler: handler.MetricsHandler{},
+	}
 
 	go func() {
 		log.Info.Printf("Metrics server started at %v", serverAddr+serverPort)

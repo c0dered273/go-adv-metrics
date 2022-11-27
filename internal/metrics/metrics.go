@@ -33,28 +33,28 @@ type Counter struct {
 }
 
 type Metric struct {
-	name   string
-	stType MetricType
-	value  string
+	Name  string
+	MType MetricType
+	Value string
 }
 
 func (m *Metric) String() string {
-	return fmt.Sprintf("/%v/%v/%v", m.stType.String(), m.name, m.value)
+	return fmt.Sprintf("/%v/%v/%v", m.MType.String(), m.Name, m.Value)
 }
 
 func NewGaugeMt(g Gauge) Metric {
 	return Metric{
-		name:   g.name,
-		value:  strconv.FormatFloat(g.value, 'f', 3, 64),
-		stType: GaugeType,
+		Name:  g.name,
+		Value: strconv.FormatFloat(g.value, 'f', 3, 64),
+		MType: GaugeType,
 	}
 }
 
 func NewCounterMt(c Counter) Metric {
 	return Metric{
-		name:   c.name,
-		value:  strconv.FormatInt(c.value, 10),
-		stType: CounterType,
+		Name:  c.name,
+		Value: strconv.FormatInt(c.value, 10),
+		MType: CounterType,
 	}
 }
 
