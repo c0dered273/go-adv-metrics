@@ -1,17 +1,17 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metrics"
 	"net/http"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 func init() {
-	for _, m := range metrics.GetAllMetrics() {
-		routes = append(routes, newRoute("POST", fmt.Sprintf("/update/%v/%v/[+-]?([0-9]*[.])?[0-9]+", m.MType.String(), m.Name), updateMetricsLoggerHandler))
-	}
+	routes = append(routes,
+		newRoute("POST", "/update/[^/]+/[^/]+/[^/]+", updateMetricsLoggerHandler))
 }
 
 var routes []route
@@ -32,6 +32,19 @@ func defaultNotFoundHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateMetricsLoggerHandler(w http.ResponseWriter, r *http.Request) {
+	pathVars := strings.Split(r.URL.Path, "/")
+	metricType, err := metrics.ParseMetricType(pathVars[2])
+	if err != nil {
+		log.Error.Printf("Unknown metric type: %v", metricType)
+		http.Error(w, "Unknown metric type", http.StatusNotImplemented)
+		return
+	}
+	_, err = strconv.ParseFloat(pathVars[4], 64)
+	if err != nil {
+		log.Error.Printf("Can`t parse metric value: %v", pathVars[4])
+		http.Error(w, "Bad request", http.StatusBadRequest)
+	}
+
 	log.Info.Printf("Incoming request %v %v", r.Method, r.URL)
 	w.WriteHeader(http.StatusOK)
 }
@@ -53,7 +66,7 @@ func (h MetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(notAllowed) > 0 {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Error.Printf("Not allowed method %v", r)
+		log.Error.Printf("Method not allowed %v", r)
 		return
 	}
 	defaultNotFoundHandler(w, r)

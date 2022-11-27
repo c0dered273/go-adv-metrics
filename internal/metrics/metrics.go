@@ -12,14 +12,26 @@ const (
 	CounterType
 )
 
-func (m MetricType) String() string {
-	switch m {
-	case GaugeType:
-		return "gauge"
-	case CounterType:
-		return "counter"
+var metricTypes = [...]string{
+	"gauge",
+	"counter",
+}
+
+func ParseMetricType(s string) (m MetricType, err error) {
+	index := -1
+	for i, mt := range metricTypes {
+		if mt == s {
+			index = i
+		}
 	}
-	return "unknown"
+	if index == -1 {
+		return m, fmt.Errorf(`cannot parse:[%s] as MetricType`, s)
+	}
+	return MetricType(index), nil
+}
+
+func (m MetricType) String() string {
+	return metricTypes[m]
 }
 
 type Gauge struct {
