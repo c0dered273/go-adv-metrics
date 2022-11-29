@@ -128,7 +128,7 @@ func NewContainer(sources []Source) Container {
 
 func (m *Container) UpdateAndGet() []Metric {
 	for _, s := range m.sources {
-		m.metrics = append(s.toMetrics())
+		m.metrics = append(m.metrics, s.toMetrics()...)
 	}
 	return m.metrics
 }
