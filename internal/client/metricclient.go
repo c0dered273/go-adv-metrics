@@ -4,83 +4,47 @@ import (
 	"context"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"net/http"
+	"github.com/go-resty/resty/v2"
 	"sync"
 	"time"
 )
 
-type MetricUpdate struct {
-	mu    sync.RWMutex
-	value []metric.Metric
-}
+const (
+	updateEndpoint = "/update"
+	pollInterval   = 2 * time.Second
+	reportInterval = 10 * time.Second
 
-func (m *MetricUpdate) Set(newValue []metric.Metric) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.value = newValue
-}
-
-func (m *MetricUpdate) Get() []metric.Metric {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.value
-}
+	retryCount       = 3
+	retryWaitTime    = 5 * time.Second
+	retryMaxWaitTime = 15 * time.Second
+)
 
 type Settings struct {
-	UpdateEndpoint string
-	PollInterval   time.Duration
-	ReportInterval time.Duration
+	ServerAddr string
 }
 
 type MetricClient struct {
-	Client   *http.Client
 	Ctx      context.Context
 	Wg       *sync.WaitGroup
 	Settings Settings
 }
 
-func NewMetricClient(
-	client *http.Client,
-	ctx context.Context,
-	wg *sync.WaitGroup,
-	updateEndpoint string,
-	pollInterval time.Duration,
-	ReportInterval time.Duration) MetricClient {
+func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, settings Settings) MetricClient {
+	if len(settings.ServerAddr) == 0 {
+		settings.ServerAddr = "http://localhost:8080"
+	}
 	return MetricClient{
-		client,
 		ctx,
 		wg,
-		Settings{
-			updateEndpoint,
-			pollInterval,
-			ReportInterval,
-		},
+		settings,
 	}
 }
 
-func sendMetric(client *http.Client, endpoint string) error {
-	request, err := http.NewRequest(http.MethodPost, endpoint, nil)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "text/plain")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	log.Info.Printf("Metric update success %v %v", response.Request.Method, response.Request.URL)
-	return nil
-}
-
-func (c *MetricClient) updateMetrics(container *metric.Container, metricUpdate *MetricUpdate) {
-	ticker := time.NewTicker(c.Settings.PollInterval)
+func (c *MetricClient) update(container *metric.Container, metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
-		metricUpdate.Set(container.UpdateAndGet())
+		metricUpdate.set(container.UpdateAndGet())
 		select {
 		case <-ticker.C:
 			continue
@@ -91,15 +55,14 @@ func (c *MetricClient) updateMetrics(container *metric.Container, metricUpdate *
 	}
 }
 
-func (c *MetricClient) sendAllMetrics(metricUpdate *MetricUpdate) {
-	ticker := time.NewTicker(c.Settings.ReportInterval)
+func (c *MetricClient) send(client *resty.Client, metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(reportInterval)
 	defer ticker.Stop()
 	for {
-		metricsSlice := metricUpdate.Get()
-		if len(metricsSlice) != 0 {
-			for _, m := range metricsSlice {
-				endpoint := c.Settings.UpdateEndpoint + m.String()
-				err := sendMetric(c.Client, endpoint)
+		metrics := metricUpdate.get()
+		if len(metrics) != 0 {
+			for _, m := range metrics {
+				err := c.sendMetric(client, m)
 				if err != nil {
 					log.Error.Println("Unable to send update request ", err)
 				}
@@ -115,10 +78,61 @@ func (c *MetricClient) sendAllMetrics(metricUpdate *MetricUpdate) {
 	}
 }
 
-func (c *MetricClient) SendContinuously(m *metric.Container) {
-	var metricUpdate MetricUpdate
-	go c.updateMetrics(m, &metricUpdate)
-	time.AfterFunc(50*time.Millisecond, func() {
-		c.sendAllMetrics(&metricUpdate)
+func (c *MetricClient) sendMetric(client *resty.Client, metric metric.Metric) error {
+	pathParams := map[string]string{
+		"type":  metric.Type.String(),
+		"name":  metric.Name,
+		"value": metric.Value,
+	}
+	response, err := client.R().
+		SetContext(c.Ctx).
+		SetHeader("Content-Type", "text/plain").
+		SetPathParams(pathParams).
+		Post(c.Settings.ServerAddr + updateEndpoint + "/{type}/{name}/{value}")
+	if err != nil {
+		return err
+	}
+	log.Info.Printf("Metric update success %v %v %v", response.StatusCode(), response.Request.Method, response.Request.URL)
+	return nil
+}
+
+type metricUpdate struct {
+	mu    sync.RWMutex
+	value []metric.Metric
+}
+
+func (m *metricUpdate) set(newValue []metric.Metric) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.value = newValue
+}
+
+func (m *metricUpdate) get() []metric.Metric {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.value
+}
+
+func (c *MetricClient) SendUpdateContinuously(container *metric.Container) {
+	client := resty.New()
+	client.
+		SetRetryCount(retryCount).
+		SetRetryWaitTime(retryWaitTime).
+		SetRetryMaxWaitTime(retryMaxWaitTime)
+
+	var metricUpdate metricUpdate
+
+	go c.update(container, &metricUpdate)
+	time.AfterFunc(10*time.Millisecond, func() {
+		c.send(client, &metricUpdate)
 	})
+}
+
+func (c *MetricClient) SendAllMetricsContinuously() {
+	container := metric.NewContainer([]metric.Source{
+		metric.NewMemStats(),
+	})
+	c.SendUpdateContinuously(&container)
 }

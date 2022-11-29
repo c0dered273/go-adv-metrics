@@ -31,7 +31,7 @@ func TestMetricClient_SendContinuously(t *testing.T) {
 				},
 			},
 			want: want{
-				url: "/gauge/Alloc/31773.001",
+				url: "/update/gauge/Alloc/31773.001",
 			},
 		},
 		{
@@ -45,7 +45,7 @@ func TestMetricClient_SendContinuously(t *testing.T) {
 				},
 			},
 			want: want{
-				url: "/counter/PollCounter/12345",
+				url: "/update/counter/PollCounter/12345",
 			},
 		},
 	}
@@ -57,16 +57,15 @@ func TestMetricClient_SendContinuously(t *testing.T) {
 			wg.Add(2)
 
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
 				assert.Equal(t, tt.want.url, r.URL.Path)
 			}))
 			defer srv.Close()
 
 			container := metric.NewContainer([]metric.Source{&tt.stats})
-			metricClient := NewMetricClient(srv.Client(), ctx, &wg, srv.URL, 2*time.Second, 10*time.Second)
-			metricClient.SendContinuously(&container)
+			metricClient := NewMetricClient(ctx, &wg, Settings{ServerAddr: srv.URL})
+			metricClient.SendUpdateContinuously(&container)
 
-			time.Sleep(150 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 			cancel()
 		})
 	}
