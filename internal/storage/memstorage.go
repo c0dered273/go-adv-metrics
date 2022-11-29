@@ -10,17 +10,17 @@ type MemStorage struct {
 func (m *MemStorage) Save(newMetric metric.Metric) (saved metric.Metric, err error) {
 	if len(str) == 0 {
 		str = append(str, newMetric)
-	}
-	for i := 0; i < len(str); i++ {
-		if newMetric.GetName() == str[i].GetName() && newMetric.GetType() == str[i].GetType() {
-			err := str[i].AddValue(newMetric.GetStringValue())
-			if err != nil {
-				return saved, err
+	} else {
+		for i := 0; i < len(str); i++ {
+			if newMetric.GetName() == str[i].GetName() && newMetric.GetType() == str[i].GetType() {
+				err := str[i].AddValue(newMetric.GetStringValue())
+				if err != nil {
+					return saved, err
+				}
+				return newMetric, nil
 			}
-			break
-		} else {
-			str = append(str, newMetric)
 		}
+		str = append(str, newMetric)
 	}
 	return newMetric, nil
 }
