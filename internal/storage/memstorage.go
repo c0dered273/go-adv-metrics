@@ -14,7 +14,7 @@ func (m *MemStorage) Save(newMetric metric.Metric) (saved metric.Metric, err err
 	for i := 0; i < len(str); i++ {
 		if newMetric.GetName() == str[i].GetName() && newMetric.GetType() == str[i].GetType() {
 			m, appError := metric.NewMetric(newMetric.GetName(), newMetric.GetType().String(), newMetric.GetStringValue())
-			if err != nil {
+			if appError.Error != nil {
 				return saved, appError.Error
 			}
 			str[i] = m
