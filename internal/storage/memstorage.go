@@ -13,11 +13,10 @@ func (m *MemStorage) Save(newMetric metric.Metric) (saved metric.Metric, err err
 	}
 	for i := 0; i < len(str); i++ {
 		if newMetric.GetName() == str[i].GetName() && newMetric.GetType() == str[i].GetType() {
-			m, appError := metric.NewMetric(newMetric.GetName(), newMetric.GetType().String(), newMetric.GetStringValue())
-			if appError.Error != nil {
-				return saved, appError.Error
+			err := str[i].AddValue(newMetric.GetStringValue())
+			if err != nil {
+				return saved, err
 			}
-			str[i] = m
 			break
 		} else {
 			str = append(str, newMetric)

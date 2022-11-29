@@ -72,6 +72,31 @@ func (m *Metric) GetStringValue() string {
 	}
 }
 
+func (m *Metric) AddValue(value string) error {
+	switch m.mType {
+	case gauge:
+		{
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return err
+			}
+			curValue := m.value.(float64)
+			m.value = curValue + v
+
+		}
+	case counter:
+		{
+			v, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return err
+			}
+			curValue := m.value.(int64)
+			m.value = curValue + v
+		}
+	}
+	return nil
+}
+
 func NewGaugeMetric(name string, value float64) Metric {
 	var m Metric
 	m.setName(name)
