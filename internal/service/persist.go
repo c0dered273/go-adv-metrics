@@ -20,7 +20,7 @@ func (p *PersistMetric) SaveMetric(newMetric metric.Metric) error {
 		}
 	case metric.Counter:
 		{
-			existMetric, fndErr := p.Repo.FindById(newMetric)
+			existMetric, fndErr := p.Repo.FindByID(newMetric)
 			if fndErr != nil {
 				err := p.Repo.Save(newMetric)
 				if err != nil {

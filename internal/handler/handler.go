@@ -75,7 +75,7 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
-		tmpMetric, findErr := repository.FindById(keyMetric)
+		tmpMetric, findErr := repository.FindByID(keyMetric)
 		if findErr != nil {
 			log.Error.Printf("Metric not found with name: %v, type: %v", mName, mType)
 			http.Error(w, "Metric not found", http.StatusNotFound)
