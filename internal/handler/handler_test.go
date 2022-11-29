@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +19,7 @@ func TestMetricsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "should response 200 when valid request #1",
 			method: "POST",
-			url:    "http://localhost:8080/update/gauge/Alloc/31337",
+			url:    "http://localhost:8080/update/gauge/Alloc/31337.000",
 			want: want{
 				code: 200,
 			},
@@ -86,7 +85,7 @@ func TestMetricsHandler_ServeHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.method, tt.url, nil)
 			writer := httptest.NewRecorder()
-			h := NewMetricHandler(storage.NewMemStorage())
+			h := Service()
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()

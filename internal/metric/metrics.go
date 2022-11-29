@@ -8,127 +8,139 @@ import (
 type Type int
 
 const (
-	GaugeType Type = iota
-	CounterType
+	gauge Type = iota
+	counter
 )
 
-var metricTypes = [...]string{
+var types = [...]string{
 	"gauge",
 	"counter",
 }
 
-func ParseMetricType(s string) (m Type, err error) {
-	index := -1
-	for i, mt := range metricTypes {
-		if mt == s {
-			index = i
-		}
-	}
-	if index == -1 {
-		return m, fmt.Errorf("cannot parse: [%s] as MetricType", s)
-	}
-	return Type(index), nil
-}
-
-func (m Type) String() string {
-	return metricTypes[m]
-}
-
-type Gauge struct {
-	Name  string
-	Value float64
-}
-
-type Counter struct {
-	Name  string
-	Value int64
+func (t Type) String() string {
+	return types[t]
 }
 
 type Metric struct {
-	Name  string
-	Type  Type
-	Value string
+	name  string
+	mType Type
+	value interface{}
+}
+
+func (m *Metric) GetName() string {
+	return m.name
+}
+
+func (m *Metric) setName(n string) {
+	m.name = n
+}
+
+func (m *Metric) GetType() Type {
+	return m.mType
+}
+
+func (m *Metric) setType(t Type) {
+	m.mType = t
+}
+
+func (m *Metric) GetGaugeValue() float64 {
+	return m.value.(float64)
+}
+
+func (m *Metric) setGaugeValue(v float64) {
+	m.mType = gauge
+	m.value = v
+}
+
+func (m *Metric) GetCounterValue() int64 {
+	return m.value.(int64)
+}
+
+func (m *Metric) setCounterValue(v int64) {
+	m.mType = counter
+	m.value = v
+}
+
+func (m *Metric) GetStringValue() string {
+	switch m.mType {
+	case gauge:
+		return strconv.FormatFloat(m.value.(float64), 'f', -1, 64)
+	case counter:
+		return strconv.FormatInt(m.value.(int64), 10)
+	default:
+		return ""
+	}
+}
+
+func NewGaugeMetric(name string, value float64) Metric {
+	var m Metric
+	m.setName(name)
+	m.setGaugeValue(value)
+	return m
+}
+
+func NewCounterMetric(name string, value int64) Metric {
+	var m Metric
+	m.setName(name)
+	m.setCounterValue(value)
+	return m
+}
+
+type NewMetricError struct {
+	Error      error
+	TypeError  bool
+	ValueError bool
+}
+
+func NewMetric(name string, typeName string, value string) (m Metric, appError *NewMetricError) {
+	switch typeName {
+	case gauge.String():
+		{
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return m, &NewMetricError{err, false, true}
+			}
+			m = NewGaugeMetric(name, v)
+		}
+	case counter.String():
+		{
+			v, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return m, &NewMetricError{err, false, true}
+			}
+			m = NewCounterMetric(name, v)
+		}
+	default:
+		return m, &NewMetricError{
+			fmt.Errorf("cannot parse: [%s] as metric type", typeName),
+			true,
+			false,
+		}
+	}
+	return m, &NewMetricError{}
 }
 
 func (m *Metric) String() string {
-	return fmt.Sprintf("/%v/%v/%v", m.Type.String(), m.Name, m.Value)
+	return fmt.Sprintf("/%v/%v/%v", m.GetType().String(), m.GetName(), m.GetStringValue())
 }
 
-func NewGaugeMt(g Gauge) Metric {
-	return Metric{
-		Name:  g.Name,
-		Value: strconv.FormatFloat(g.Value, 'f', 3, 64),
-		Type:  GaugeType,
+type Updatable func() []Metric
+
+func GetUpdatable(sources ...Updatable) Updatable {
+	return func() []Metric {
+		var updates [][]Metric
+		var totalLen int
+		for _, s := range sources {
+			newSlice := s()
+			updates = append(updates, newSlice)
+			totalLen += len(newSlice)
+		}
+
+		result := make([]Metric, totalLen)
+		var i int
+		for _, s := range updates {
+			i += copy(result[i:], s)
+		}
+		return result
 	}
-}
-
-func NewCounterMt(c Counter) Metric {
-	return Metric{
-		Name:  c.Name,
-		Value: strconv.FormatInt(c.Value, 10),
-		Type:  CounterType,
-	}
-}
-
-func gaugeSliceToMt(g []Gauge) []Metric {
-	result := make([]Metric, len(g))
-	for i := 0; i < len(g); i++ {
-		result[i] = NewGaugeMt(g[i])
-	}
-	return result
-}
-
-func counterSliceToMt(c []Counter) []Metric {
-	result := make([]Metric, len(c))
-	for i := 0; i < len(c); i++ {
-		result[i] = NewCounterMt(c[i])
-	}
-	return result
-}
-
-func concatSlices(slices ...[]Metric) []Metric {
-	var totalLen int
-	for _, s := range slices {
-		totalLen += len(s)
-	}
-
-	result := make([]Metric, totalLen)
-	var i int
-	for _, s := range slices {
-		i += copy(result[i:], s)
-	}
-	return result
-}
-
-type Stats struct {
-	Gauges   []Gauge
-	Counters []Counter
-}
-
-func (m *Stats) toMetrics() []Metric {
-	gaugesMt := gaugeSliceToMt(m.Gauges)
-	counterMt := counterSliceToMt(m.Counters)
-	return concatSlices(gaugesMt, counterMt)
-}
-
-type Source interface {
-	toMetrics() []Metric
-}
-
-type Container struct {
-	sources []Source
-	metrics []Metric
-}
-
-func NewContainer(sources []Source) Container {
-	return Container{
-		sources: sources,
-	}
-}
-
-func (m *Container) UpdateAndGet() []Metric {
-	for _, s := range m.sources {
-		m.metrics = append(m.metrics, s.toMetrics()...)
-	}
-	return m.metrics
 }

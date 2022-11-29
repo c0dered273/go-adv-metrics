@@ -5,80 +5,97 @@ import (
 	"testing"
 )
 
-func TestMetricContainer_UpdateAndGet(t *testing.T) {
+func TestGetUpdatable(t *testing.T) {
 	tests := []struct {
-		name  string
-		stats Stats
-		want  []string
+		name      string
+		sourceOne []Metric
+		sourceTwo []Metric
+		want      []string
 	}{
 		{
-			name: "successfully return slice of endpoints",
-			stats: Stats{
-				Gauges: []Gauge{
-					{
-						Name:  "Alloc",
-						Value: 31773.001,
-					},
-				},
-				Counters: []Counter{
-					{
-						Name:  "PollCounter",
-						Value: 12345,
-					},
-				},
+			name: "successfully return updatable slice of metrics",
+			sourceOne: []Metric{
+				NewGaugeMetric("FirstGauge", 31337.1),
+				NewCounterMetric("FirstCounter", 12345),
+			},
+			sourceTwo: []Metric{
+				NewGaugeMetric("SecondGauge", float64(42)),
+				NewCounterMetric("SecondCounter", 321),
 			},
 			want: []string{
-				"/gauge/Alloc/31773.001",
-				"/counter/PollCounter/12345",
+				"/gauge/FirstGauge/31337.1",
+				"/counter/FirstCounter/12345",
+				"/gauge/SecondGauge/42",
+				"/counter/SecondCounter/321",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			container := NewContainer([]Source{&tt.stats})
-			metrics := container.UpdateAndGet()
-			var expected []string
-			for _, m := range metrics {
-				expected = append(expected, m.String())
+			updatable := GetUpdatable(func() []Metric { return tt.sourceOne }, func() []Metric { return tt.sourceTwo })
+			var actual []string
+			for _, m := range updatable() {
+				actual = append(actual, m.String())
 			}
-			assert.Equal(t, tt.want, expected)
+
+			assert.Equal(t, tt.want, actual)
 		})
 	}
 }
 
-func TestParseMetricType(t *testing.T) {
-	type args struct {
-		s string
-	}
+func TestNewMetric(t *testing.T) {
 	tests := []struct {
 		name    string
-		args    args
-		wantM   Type
+		mName   string
+		mType   string
+		mValue  string
+		wantM   Metric
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name:    "successfully parse Gauge metric type",
-			args:    args{"gauge"},
-			wantM:   GaugeType,
+			name:   "successfully parse gauge metric",
+			mName:  "GaugeOne",
+			mType:  "gauge",
+			mValue: "31337",
+			wantM: Metric{
+				name:  "GaugeOne",
+				mType: gauge,
+				value: float64(31337),
+			},
 			wantErr: assert.NoError,
 		},
 		{
-			name:    "successfully parse Counter metric type",
-			args:    args{"counter"},
-			wantM:   CounterType,
+			name:   "successfully parse counter metric",
+			mName:  "CounterOne",
+			mType:  "counter",
+			mValue: "31337",
+			wantM: Metric{
+				name:  "CounterOne",
+				mType: counter,
+				value: int64(31337),
+			},
 			wantErr: assert.NoError,
 		},
 		{
-			name:    "error when parse unknown type",
-			args:    args{"unknown"},
+			name:    "error parse unknown metric type",
+			mName:   "ErrorOne",
+			mType:   "unknown",
+			mValue:  "31337",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "error parse metric value",
+			mName:   "ErrorTwo",
+			mType:   "counter",
+			mValue:  "fake_value",
 			wantErr: assert.Error,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotM, err := ParseMetricType(tt.args.s)
-			if !tt.wantErr(t, err) {
+			gotM, appError := NewMetric(tt.mName, tt.mType, tt.mValue)
+			if !tt.wantErr(t, appError.Error) {
 				return
 			}
 			assert.Equal(t, tt.wantM, gotM)

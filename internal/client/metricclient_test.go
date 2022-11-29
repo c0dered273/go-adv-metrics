@@ -11,41 +11,27 @@ import (
 	"time"
 )
 
-func TestMetricClient_SendContinuously(t *testing.T) {
+func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 	type want struct {
 		url string
 	}
 	tests := []struct {
-		name  string
-		stats metric.Stats
-		want  want
+		name   string
+		metric metric.Metric
+		want   want
 	}{
 		{
-			name: "successfully return gauge metric",
-			stats: metric.Stats{
-				Gauges: []metric.Gauge{
-					{
-						Name:  "Alloc",
-						Value: 31773.001,
-					},
-				},
-			},
+			name:   "successfully return gauge metric",
+			metric: metric.NewGaugeMetric("FirstGauge", 31337.1),
 			want: want{
-				url: "/update/gauge/Alloc/31773.001",
+				url: "/update/gauge/FirstGauge/31337.1",
 			},
 		},
 		{
-			name: "successfully return counter metric",
-			stats: metric.Stats{
-				Counters: []metric.Counter{
-					{
-						Name:  "PollCounter",
-						Value: 12345,
-					},
-				},
-			},
+			name:   "successfully return counter metric",
+			metric: metric.NewCounterMetric("FirstCounter", 12345),
 			want: want{
-				url: "/update/counter/PollCounter/12345",
+				url: "/update/counter/FirstCounter/12345",
 			},
 		},
 	}
@@ -61,9 +47,9 @@ func TestMetricClient_SendContinuously(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			container := metric.NewContainer([]metric.Source{&tt.stats})
+			upd := metric.GetUpdatable(func() []metric.Metric { return []metric.Metric{tt.metric} })
 			metricClient := NewMetricClient(ctx, &wg, Settings{ServerAddr: srv.URL})
-			metricClient.SendUpdateContinuously(&container)
+			metricClient.SendUpdateContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)
 			cancel()

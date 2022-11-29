@@ -8,16 +8,8 @@ import (
 
 func TestNewMemStorage(t *testing.T) {
 	metrics := []metric.Metric{
-		{
-			Name:  "Test1",
-			Type:  metric.GaugeType,
-			Value: "31337.000",
-		},
-		{
-			Name:  "Test2",
-			Type:  metric.CounterType,
-			Value: "123456",
-		},
+		metric.NewGaugeMetric("FirstGauge", 31337.1),
+		metric.NewCounterMetric("FirstCounter", 12345),
 	}
 
 	storage := NewMemStorage()
