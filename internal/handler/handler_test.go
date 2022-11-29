@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
 	"testing"
@@ -85,7 +86,7 @@ func TestMetricsHandler_ServeHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.method, tt.url, nil)
 			writer := httptest.NewRecorder()
-			h := MetricsHandler{}
+			h := NewMetricHandler(storage.NewMemStorage())
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()

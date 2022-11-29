@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
+	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    serverAddr + serverPort,
-		Handler: handler.MetricsHandler{},
+		Handler: handler.NewMetricHandler(storage.NewMemStorage()),
 	}
 
 	go func() {
