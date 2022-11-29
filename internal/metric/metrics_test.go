@@ -60,7 +60,7 @@ func TestNewMetric(t *testing.T) {
 			mValue: "31337",
 			wantM: Metric{
 				name:  "GaugeOne",
-				mType: gauge,
+				mType: Gauge,
 				value: float64(31337),
 			},
 			wantErr: assert.NoError,
@@ -72,7 +72,7 @@ func TestNewMetric(t *testing.T) {
 			mValue: "31337",
 			wantM: Metric{
 				name:  "CounterOne",
-				mType: counter,
+				mType: Counter,
 				value: int64(31337),
 			},
 			wantErr: assert.NoError,

@@ -1,32 +1,39 @@
 package storage
 
-import "github.com/c0dered273/go-adv-metrics/internal/metric"
+import (
+	"fmt"
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
+)
 
-var str []metric.Metric
+var (
+	str = make(map[string]metric.Metric)
+)
 
 type MemStorage struct {
 }
 
-func (m *MemStorage) Save(newMetric metric.Metric) (saved metric.Metric, err error) {
-	if len(str) == 0 {
-		str = append(str, newMetric)
-	} else {
-		for i := 0; i < len(str); i++ {
-			if newMetric.GetName() == str[i].GetName() && newMetric.GetType() == str[i].GetType() {
-				err := str[i].AddValue(newMetric.GetStringValue())
-				if err != nil {
-					return saved, err
-				}
-				return newMetric, nil
-			}
-		}
-		str = append(str, newMetric)
-	}
-	return newMetric, nil
+func (m *MemStorage) Save(newMetric metric.Metric) error {
+	str[getId(newMetric)] = newMetric
+	return nil
 }
 
 func (m *MemStorage) FindAll() (metrics []metric.Metric, err error) {
-	return str, nil
+	var result []metric.Metric
+	for _, v := range str {
+		result = append(result, v)
+	}
+	return result, nil
+}
+
+func (m *MemStorage) FindById(newMetric metric.Metric) (metric metric.Metric, err error) {
+	if result, ok := str[getId(newMetric)]; ok {
+		return result, nil
+	}
+	return metric, fmt.Errorf("storage: not found: %v %v", newMetric.GetName(), newMetric.GetType())
+}
+
+func getId(newMetric metric.Metric) string {
+	return newMetric.GetName() + newMetric.GetType().String()
 }
 
 func GetMemStorage() *MemStorage {

@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -41,7 +42,7 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 	}
 }
 
-func metricSetHandler(repository storage.Repository) http.HandlerFunc {
+func metricStore(persist service.PersistMetric) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		newMetric, appError := metric.NewMetric(chi.URLParam(r, "name"), chi.URLParam(r, "type"), chi.URLParam(r, "value"))
 		if appError.Error != nil && appError.TypeError {
@@ -55,35 +56,36 @@ func metricSetHandler(repository storage.Repository) http.HandlerFunc {
 			return
 		}
 
-		savedMetric, err := repository.Save(newMetric)
+		err := persist.SaveMetric(newMetric)
 		if err != nil {
-			log.Error.Printf("Can`t save metric: %v", savedMetric)
+			log.Error.Println("Can`t save metric ", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func metricGetHandler(repository storage.Repository) http.HandlerFunc {
+func metricLoad(repository storage.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "name")
 		mType := chi.URLParam(r, "type")
-		allMetrics, _ := repository.FindAll()
-		var value string
-		for _, m := range allMetrics {
-			if mName == m.GetName() && mType == m.GetType().String() {
-				value = m.GetStringValue()
-			}
-		}
-		if len(value) == 0 {
-			log.Error.Printf("Metric not found name: %v, type: %v", mName, mType)
+		keyMetric, appErr := metric.NewMetric(mName, mType, "0")
+		if appErr.Error != nil {
+			log.Error.Println(appErr.Error)
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
+		tmpMetric, findErr := repository.FindById(keyMetric)
+		if findErr != nil {
+			log.Error.Printf("Metric not found with name: %v, type: %v", mName, mType)
+			http.Error(w, "Metric not found", http.StatusNotFound)
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/plain")
-		_, err := w.Write([]byte(value))
-		if err != nil {
-			log.Error.Println(err.Error())
+		_, wrErr := w.Write([]byte(tmpMetric.GetStringValue()))
+		if wrErr != nil {
+			log.Error.Println(wrErr.Error())
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -99,8 +101,8 @@ func Service() http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/", rootHandler(storage.GetMemStorage()))
-	r.Post("/update/{type}/{name}/{value}", metricSetHandler(storage.GetMemStorage()))
-	r.Get("/value/{type}/{name}", metricGetHandler(storage.GetMemStorage()))
+	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: storage.GetMemStorage()}))
+	r.Get("/value/{type}/{name}", metricLoad(storage.GetMemStorage()))
 
 	return r
 }

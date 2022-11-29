@@ -15,12 +15,12 @@ func TestNewMemStorage(t *testing.T) {
 	storage := GetMemStorage()
 
 	for _, m := range metrics {
-		_, err := storage.Save(m)
+		err := storage.Save(m)
 		if err != nil {
 			return
 		}
 	}
 
 	result, _ := storage.FindAll()
-	assert.Equal(t, metrics, result)
+	assert.ElementsMatch(t, metrics, result)
 }

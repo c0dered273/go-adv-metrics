@@ -49,8 +49,7 @@ func TestService(t *testing.T) {
 			method: "GET",
 			url:    "http://localhost:8080/",
 			want: want{
-				code:  200,
-				value: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>All metrics</title>\n</head>\n<body>\n    <h2>All metrics</h2>\n    <ol>\n        \n            <li>/gauge/Alloc/31337.1</li>\n        \n            <li>/counter/PollCounter/123</li>\n        \n    </ol>\n</body>\n</html>",
+				code: 200,
 			},
 		},
 		{
@@ -116,6 +115,63 @@ func TestService(t *testing.T) {
 			writer := httptest.NewRecorder()
 			h := handler.Service()
 			h.ServeHTTP(writer, request)
+			res := writer.Result()
+			defer res.Body.Close()
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			if tt.want.value != "" {
+				actual, _ := io.ReadAll(res.Body)
+				assert.Equal(t, tt.want.value, string(actual))
+			}
+		})
+	}
+}
+
+func Test_metricStore(t *testing.T) {
+	type want struct {
+		code  int
+		value string
+	}
+	tests := []struct {
+		name   string
+		method string
+		url1   string
+		url2   string
+		url3   string
+		want   want
+	}{
+		{
+			name:   "should return 200 and last update value",
+			method: "POST",
+			url1:   "http://localhost:8080/update/gauge/Alloc/11",
+			url2:   "http://localhost:8080/update/gauge/Alloc/22",
+			url3:   "http://localhost:8080/value/gauge/Alloc",
+			want: want{
+				code:  200,
+				value: "22",
+			},
+		},
+		{
+			name:   "should return 200 and sum of updates values",
+			method: "POST",
+			url1:   "http://localhost:8080/update/counter/poll/11",
+			url2:   "http://localhost:8080/update/counter/poll/22",
+			url3:   "http://localhost:8080/value/counter/poll",
+			want: want{
+				code:  200,
+				value: "33",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request1 := httptest.NewRequest(tt.method, tt.url1, nil)
+			request2 := httptest.NewRequest(tt.method, tt.url2, nil)
+			request3 := httptest.NewRequest("GET", tt.url3, nil)
+			writer := httptest.NewRecorder()
+			h := handler.Service()
+			h.ServeHTTP(writer, request1)
+			h.ServeHTTP(writer, request2)
+			h.ServeHTTP(writer, request3)
 			res := writer.Result()
 			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)

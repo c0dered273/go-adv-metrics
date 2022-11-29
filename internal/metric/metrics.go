@@ -8,8 +8,8 @@ import (
 type Type int
 
 const (
-	gauge Type = iota
-	counter
+	Gauge Type = iota
+	Counter
 )
 
 var types = [...]string{
@@ -48,7 +48,7 @@ func (m *Metric) GetGaugeValue() float64 {
 }
 
 func (m *Metric) setGaugeValue(v float64) {
-	m.mType = gauge
+	m.mType = Gauge
 	m.value = v
 }
 
@@ -57,44 +57,19 @@ func (m *Metric) GetCounterValue() int64 {
 }
 
 func (m *Metric) setCounterValue(v int64) {
-	m.mType = counter
+	m.mType = Counter
 	m.value = v
 }
 
 func (m *Metric) GetStringValue() string {
 	switch m.mType {
-	case gauge:
+	case Gauge:
 		return strconv.FormatFloat(m.value.(float64), 'f', -1, 64)
-	case counter:
+	case Counter:
 		return strconv.FormatInt(m.value.(int64), 10)
 	default:
 		return ""
 	}
-}
-
-func (m *Metric) AddValue(value string) error {
-	switch m.mType {
-	case gauge:
-		{
-			v, err := strconv.ParseFloat(value, 64)
-			if err != nil {
-				return err
-			}
-			curValue := m.value.(float64)
-			m.value = curValue + v
-
-		}
-	case counter:
-		{
-			v, err := strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				return err
-			}
-			curValue := m.value.(int64)
-			m.value = curValue + v
-		}
-	}
-	return nil
 }
 
 func NewGaugeMetric(name string, value float64) Metric {
@@ -119,7 +94,7 @@ type NewMetricError struct {
 
 func NewMetric(name string, typeName string, value string) (m Metric, appError *NewMetricError) {
 	switch typeName {
-	case gauge.String():
+	case Gauge.String():
 		{
 			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
@@ -127,7 +102,7 @@ func NewMetric(name string, typeName string, value string) (m Metric, appError *
 			}
 			m = NewGaugeMetric(name, v)
 		}
-	case counter.String():
+	case Counter.String():
 		{
 			v, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
