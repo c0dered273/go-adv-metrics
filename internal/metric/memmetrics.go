@@ -3,6 +3,7 @@ package metric
 import (
 	"math/rand"
 	"runtime"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,7 +13,7 @@ func NewMemStats() []Metric {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	pollCounter += 1
+	atomic.AddInt64(&pollCounter, 1)
 
 	seed := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(seed)

@@ -6,12 +6,10 @@ import (
 	"sync"
 )
 
-var (
-	storage = MemStorage{str: make(map[string]metric.Metric)}
-)
+var instance *MemStorage 
 
 type MemStorage struct {
-	mx  sync.RWMutex
+	mx  *sync.RWMutex
 	str map[string]metric.Metric
 }
 
@@ -65,6 +63,12 @@ func getID(newMetric metric.Metric) string {
 	return newMetric.GetName() + newMetric.GetType().String()
 }
 
-func GetMemStorage() *MemStorage {
-	return &storage
+func GetMemStorageInstance() *MemStorage {
+	if instance == nil {
+		instance = &MemStorage{
+			str: make(map[string]metric.Metric),
+			mx: new(sync.RWMutex),
+		}
+	}
+	return instance
 }

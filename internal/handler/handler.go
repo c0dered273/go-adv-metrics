@@ -100,9 +100,9 @@ func Service() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.Get("/", rootHandler(storage.GetMemStorage()))
-	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: storage.GetMemStorage()}))
-	r.Get("/value/{type}/{name}", metricLoad(storage.GetMemStorage()))
+	r.Get("/", rootHandler(storage.GetMemStorageInstance()))
+	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: storage.GetMemStorageInstance()}))
+	r.Get("/value/{type}/{name}", metricLoad(storage.GetMemStorageInstance()))
 
 	return r
 }

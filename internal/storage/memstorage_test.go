@@ -12,7 +12,7 @@ func TestNewMemStorage(t *testing.T) {
 		metric.NewCounterMetric("FirstCounter", 12345),
 	}
 
-	storage := GetMemStorage()
+	storage := GetMemStorageInstance()
 
 	for _, m := range metrics {
 		err := storage.Save(m)
