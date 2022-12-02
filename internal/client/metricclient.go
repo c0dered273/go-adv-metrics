@@ -2,11 +2,12 @@ package client
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/go-resty/resty/v2"
-	"sync"
-	"time"
 )
 
 const (

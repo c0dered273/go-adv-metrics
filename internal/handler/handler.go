@@ -1,16 +1,21 @@
 package handler
 
 import (
+	"html/template"
+	"net/http"
+	"time"
+
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"html/template"
-	"net/http"
-	"time"
 )
+
+type ServerConfig struct {
+	Repo *storage.MemStorage
+}
 
 type IndexData struct {
 	Title   string
@@ -92,7 +97,7 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 	}
 }
 
-func Service() http.Handler {
+func Service(config ServerConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -100,9 +105,9 @@ func Service() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.Get("/", rootHandler(storage.GetMemStorageInstance()))
-	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: storage.GetMemStorageInstance()}))
-	r.Get("/value/{type}/{name}", metricLoad(storage.GetMemStorageInstance()))
+	r.Get("/", rootHandler(config.Repo))
+	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
+	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
 
 	return r
 }

@@ -1,9 +1,10 @@
 package storage
 
 import (
+	"testing"
+
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestNewMemStorage(t *testing.T) {

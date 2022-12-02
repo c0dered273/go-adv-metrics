@@ -2,11 +2,10 @@ package storage
 
 import (
 	"fmt"
-	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"sync"
-)
 
-var instance *MemStorage 
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
+)
 
 type MemStorage struct {
 	mx  *sync.RWMutex
@@ -64,11 +63,8 @@ func getID(newMetric metric.Metric) string {
 }
 
 func GetMemStorageInstance() *MemStorage {
-	if instance == nil {
-		instance = &MemStorage{
-			str: make(map[string]metric.Metric),
-			mx: new(sync.RWMutex),
-		}
+	return &MemStorage{
+		str: make(map[string]metric.Metric),
+		mx:  new(sync.RWMutex),
 	}
-	return instance
 }

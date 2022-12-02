@@ -1,11 +1,13 @@
 package tests
 
 import (
-	"github.com/c0dered273/go-adv-metrics/internal/handler"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/c0dered273/go-adv-metrics/internal/handler"
+	"github.com/c0dered273/go-adv-metrics/internal/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestService(t *testing.T) {
@@ -109,11 +111,16 @@ func TestService(t *testing.T) {
 			},
 		},
 	}
+
+	cfg := handler.ServerConfig{
+		Repo: storage.GetMemStorageInstance(),
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.method, tt.url, nil)
 			writer := httptest.NewRecorder()
-			h := handler.Service()
+			h := handler.Service(cfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()
@@ -162,13 +169,18 @@ func Test_metricStore(t *testing.T) {
 			},
 		},
 	}
+
+	cfg := handler.ServerConfig{
+		Repo: storage.GetMemStorageInstance(),
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request1 := httptest.NewRequest(tt.method, tt.url1, nil)
 			request2 := httptest.NewRequest(tt.method, tt.url2, nil)
 			request3 := httptest.NewRequest("GET", tt.url3, nil)
 			writer := httptest.NewRecorder()
-			h := handler.Service()
+			h := handler.Service(cfg)
 			h.ServeHTTP(writer, request1)
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)

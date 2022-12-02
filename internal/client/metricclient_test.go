@@ -2,13 +2,14 @@ package client
 
 import (
 	"context"
-	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetricClient_SendUpdateContinuously(t *testing.T) {

@@ -39,10 +39,6 @@ func (m *Metric) GetType() Type {
 	return m.mType
 }
 
-func (m *Metric) setType(t Type) {
-	m.mType = t
-}
-
 func (m *Metric) GetGaugeValue() float64 {
 	return m.value.(float64)
 }
