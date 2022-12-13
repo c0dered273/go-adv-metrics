@@ -24,3 +24,4 @@ vendor/
 .idea
 .vscode
 .DS_Store
+.golangci.yml
