@@ -18,7 +18,7 @@ func TestNewMemStorage(t *testing.T) {
 	for _, m := range metrics {
 		err := storage.Save(m)
 		if err != nil {
-			return
+			panic(err)
 		}
 	}
 

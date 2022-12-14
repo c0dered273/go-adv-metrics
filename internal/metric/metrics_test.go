@@ -122,7 +122,7 @@ func TestNewMetricErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, appError := NewMetric(tt.mName, tt.mType, tt.mValue)
 			if !tt.wantErr(t, appError.Error) {
-				return
+				panic(appError.Error)
 			}
 			tt.want.Error = appError.Error
 			assert.Equal(t, tt.want, appError)
@@ -160,14 +160,14 @@ func TestMetric_MarshalJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.metric.MarshalJSON()
+			got, err := json.Marshal(tt.metric)
 			if !tt.wantErr(t, err) {
-				return
+				panic(err)
 			}
 			expect := new(bytes.Buffer)
 			err = json.Compact(expect, tt.want)
 			if err != nil {
-				return
+				panic(err)
 			}
 			assert.JSONEq(t, expect.String(), string(got))
 		})
@@ -208,12 +208,12 @@ func TestMetric_UnmarshalJSON(t *testing.T) {
 			resp := Metric{}
 			err := json.Compact(req, tt.json)
 			if err != nil {
-				return
+				panic(err)
 			}
 
 			err = json.Unmarshal(req.Bytes(), &resp)
 			if !tt.wantErr(t, err) {
-				return
+				panic(err)
 			}
 			assert.Equal(t, tt.want, resp)
 		})

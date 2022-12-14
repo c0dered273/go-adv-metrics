@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -106,16 +107,16 @@ func (c *MetricClient) send(metricUpdate *metricUpdate) {
 }
 
 func (c *MetricClient) postMetric(metric metric.Metric) error {
-	pathParams := map[string]string{
-		"type":  metric.GetType().String(),
-		"name":  metric.GetName(),
-		"value": metric.GetStringValue(),
+	body, marshErr := json.Marshal(metric)
+	if marshErr != nil {
+		return marshErr
 	}
+
 	response, err := c.client.R().
 		SetContext(c.Ctx).
-		SetHeader("Content-Type", "text/plain").
-		SetPathParams(pathParams).
-		Post(c.Settings.ServerAddr + updateEndpoint + "/{type}/{name}/{value}")
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(c.Settings.ServerAddr + updateEndpoint)
 	if err != nil {
 		return err
 	}

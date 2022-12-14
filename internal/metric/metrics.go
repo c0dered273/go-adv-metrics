@@ -96,13 +96,13 @@ func (m *Metric) Equal(other *Metric) bool {
 	}
 }
 
-func (m *Metric) MarshalJSON() ([]byte, error) {
+func (m Metric) MarshalJSON() ([]byte, error) {
 	type MetricAlias Metric
 	aliasValue := &struct {
-		*MetricAlias
+		MetricAlias
 		MType string `json:"type"`
 	}{
-		MetricAlias: (*MetricAlias)(m),
+		MetricAlias: MetricAlias(m),
 		MType:       m.MType.String(),
 	}
 	result, err := json.Marshal(aliasValue)
