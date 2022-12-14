@@ -170,9 +170,7 @@ func TestService(t *testing.T) {
 			h := handler.Service(cfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
-			defer func(Body io.ReadCloser) {
-				_ = Body.Close()
-			}(res.Body)
+			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			if tt.want.value != "" {
 				actual, _ := io.ReadAll(res.Body)
@@ -234,9 +232,7 @@ func Test_metricStore(t *testing.T) {
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)
 			res := writer.Result()
-			defer func(Body io.ReadCloser) {
-				_ = Body.Close()
-			}(res.Body)
+			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			if tt.want.value != "" {
 				actual, _ := io.ReadAll(res.Body)
