@@ -166,9 +166,9 @@ func Service(config ServerConfig) http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/", rootHandler(config.Repo))
-	r.Post("/value", metricJSONLoad(config.Repo))
+	r.Post("/value/", metricJSONLoad(config.Repo))
 	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
-	r.Post("/update", metricJSONStore(service.PersistMetric{Repo: config.Repo}))
+	r.Post("/update/", metricJSONStore(service.PersistMetric{Repo: config.Repo}))
 	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
 
 	return r

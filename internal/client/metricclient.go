@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	updateEndpoint = "/update"
+	updateEndpoint = "/update/"
 	pollInterval   = 2 * time.Second
 	reportInterval = 10 * time.Second
 

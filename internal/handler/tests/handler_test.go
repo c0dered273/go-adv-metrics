@@ -108,6 +108,14 @@ func TestService(t *testing.T) {
 			},
 		},
 		{
+			name:   "should response 404 when invalid path #3",
+			method: "POST",
+			url:    "http://localhost:8080/update",
+			want: want{
+				code: 404,
+			},
+		},
+		{
 			name:   "should response 404 when unknown value",
 			method: "GET",
 			url:    "http://localhost:8080/value/unknown/metric",
@@ -118,7 +126,7 @@ func TestService(t *testing.T) {
 		{
 			name:   "should response 200 when valid gauge",
 			method: "POST",
-			url:    "http://localhost:8080/update",
+			url:    "http://localhost:8080/update/",
 			body: JSONtoByte(`{
 									"id": "Alloc",
 									"type": "gauge",
@@ -131,7 +139,7 @@ func TestService(t *testing.T) {
 		{
 			name:   "should response 200 when valid counter",
 			method: "POST",
-			url:    "http://localhost:8080/update",
+			url:    "http://localhost:8080/update/",
 			body: JSONtoByte(`{
 									"id": "Poll",
 									"type": "counter",
@@ -252,13 +260,13 @@ func Test_metricJSONLoad(t *testing.T) {
 		{
 			name:     "should return 200 and update gauge value",
 			method:   "POST",
-			storeURL: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update/",
 			storeBody: JSONtoByte(`{
 										"id":"Alloc",
 										"type": "gauge",
 										"value": 555.99
 									}`),
-			loadURL: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value/",
 			loadBody: JSONtoByte(`{
 										"id":"Alloc",
 										"type":"gauge"
@@ -271,13 +279,13 @@ func Test_metricJSONLoad(t *testing.T) {
 		{
 			name:     "should return 200 and update counter value",
 			method:   "POST",
-			storeURL: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update/",
 			storeBody: JSONtoByte(`{
 										"id":"PollCounter",
 										"type": "counter",
 										"delta": 123456
 									}`),
-			loadURL: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value/",
 			loadBody: JSONtoByte(`{
 										"id":"PollCounter",
 										"type":"counter"
@@ -290,13 +298,13 @@ func Test_metricJSONLoad(t *testing.T) {
 		{
 			name:     "should return 400 when invalid metric",
 			method:   "POST",
-			storeURL: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update/",
 			storeBody: JSONtoByte(`{
 										"id":"Allocr",
 										"type": "gauge",
 										"delta": 123456
 									}`),
-			loadURL: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value/",
 			want: want{
 				code: 400,
 			},

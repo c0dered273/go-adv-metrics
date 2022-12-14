@@ -29,7 +29,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			name:   "successfully return gauge metric",
 			metric: metric.NewGaugeMetric("FirstGauge", 31337.1),
 			want: want{
-				url: "/update",
+				url: "/update/",
 				body: []byte(`{
 								"id": "FirstGauge",
 								"type": "gauge",
@@ -41,7 +41,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			name:   "successfully return counter metric",
 			metric: metric.NewCounterMetric("FirstCounter", 12345),
 			want: want{
-				url: "/update",
+				url: "/update/",
 				body: []byte(`{
 								"id": "FirstCounter",
 								"type": "counter",
