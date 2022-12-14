@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"time"
@@ -70,6 +71,25 @@ func metricStore(persist service.PersistMetric) http.HandlerFunc {
 	}
 }
 
+func metricJsonStore(persist service.PersistMetric) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var newMetric metric.Metric
+
+		if decErr := json.NewDecoder(r.Body).Decode(&newMetric); decErr != nil {
+			log.Error.Println("Can`t unmarshall request ", decErr)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		persistErr := persist.SaveMetric(newMetric)
+		if persistErr != nil {
+			log.Error.Println("Can`t save metric ", persistErr)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 func metricLoad(repository storage.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "name")
@@ -106,8 +126,9 @@ func Service(config ServerConfig) http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/", rootHandler(config.Repo))
-	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
 	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
+	r.Post("/update", metricJsonStore(service.PersistMetric{Repo: config.Repo}))
+	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
 
 	return r
 }

@@ -1,7 +1,10 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -19,6 +22,7 @@ func TestService(t *testing.T) {
 		name   string
 		method string
 		url    string
+		body   []byte
 		want   want
 	}{
 		{
@@ -95,19 +99,53 @@ func TestService(t *testing.T) {
 			},
 		},
 		{
-			name:   "should response 404 when invalid path #3",
-			method: "POST",
-			url:    "http://localhost:8080/update",
-			want: want{
-				code: 404,
-			},
-		},
-		{
 			name:   "should response 404 when unknown value",
 			method: "GET",
 			url:    "http://localhost:8080/value/unknown/metric",
 			want: want{
 				code: 404,
+			},
+		},
+		{
+			name:   "should response 200 when valid gauge",
+			method: "POST",
+			url:    "http://localhost:8080/update",
+			body: func() []byte {
+				var req bytes.Buffer
+				r := []byte(`{
+						"id": "Alloc",
+						"type": "gauge",
+						"value": 31337.9
+					}`)
+				err := json.Compact(&req, r)
+				if err != nil {
+					return nil
+				}
+				return req.Bytes()
+			}(),
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:   "should response 200 when valid counter",
+			method: "POST",
+			url:    "http://localhost:8080/update",
+			body: func() []byte {
+				var req bytes.Buffer
+				r := []byte(`{
+						"id": "Poll",
+						"type": "counter",
+						"value": 313379
+					}`)
+				err := json.Compact(&req, r)
+				if err != nil {
+					return nil
+				}
+				return req.Bytes()
+			}(),
+			want: want{
+				code: 200,
 			},
 		},
 	}
@@ -118,12 +156,23 @@ func TestService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.method, tt.url, nil)
+			var request *http.Request
+			var bodyReader *bytes.Reader
+
+			if len(tt.body) != 0 {
+				bodyReader = bytes.NewReader(tt.body)
+				request = httptest.NewRequest(tt.method, tt.url, bodyReader)
+			} else {
+				request = httptest.NewRequest(tt.method, tt.url, nil)
+			}
+
 			writer := httptest.NewRecorder()
 			h := handler.Service(cfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
-			defer res.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(res.Body)
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			if tt.want.value != "" {
 				actual, _ := io.ReadAll(res.Body)
@@ -185,7 +234,9 @@ func Test_metricStore(t *testing.T) {
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)
 			res := writer.Result()
-			defer res.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(res.Body)
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			if tt.want.value != "" {
 				actual, _ := io.ReadAll(res.Body)
