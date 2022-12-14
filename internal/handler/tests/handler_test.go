@@ -243,22 +243,22 @@ func Test_metricJSONLoad(t *testing.T) {
 	tests := []struct {
 		name      string
 		method    string
-		storeUrl  string
+		storeURL  string
 		storeBody []byte
-		loadUrl   string
+		loadURL   string
 		loadBody  []byte
 		want      want
 	}{
 		{
 			name:     "should return 200 and update gauge value",
 			method:   "POST",
-			storeUrl: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update",
 			storeBody: JSONtoByte(`{
 										"id":"Alloc",
 										"type": "gauge",
 										"value": 555.99
 									}`),
-			loadUrl: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value",
 			loadBody: JSONtoByte(`{
 										"id":"Alloc",
 										"type":"gauge"
@@ -271,13 +271,13 @@ func Test_metricJSONLoad(t *testing.T) {
 		{
 			name:     "should return 200 and update counter value",
 			method:   "POST",
-			storeUrl: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update",
 			storeBody: JSONtoByte(`{
 										"id":"PollCounter",
 										"type": "counter",
 										"delta": 123456
 									}`),
-			loadUrl: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value",
 			loadBody: JSONtoByte(`{
 										"id":"PollCounter",
 										"type":"counter"
@@ -290,13 +290,13 @@ func Test_metricJSONLoad(t *testing.T) {
 		{
 			name:     "should return 400 when invalid metric",
 			method:   "POST",
-			storeUrl: "http://localhost:8080/update",
+			storeURL: "http://localhost:8080/update",
 			storeBody: JSONtoByte(`{
 										"id":"Allocr",
 										"type": "gauge",
 										"delta": 123456
 									}`),
-			loadUrl: "http://localhost:8080/value",
+			loadURL: "http://localhost:8080/value",
 			want: want{
 				code: 400,
 			},
@@ -309,8 +309,8 @@ func Test_metricJSONLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storeReq := httptest.NewRequest(tt.method, tt.storeUrl, bytes.NewReader(tt.storeBody))
-			loadReq := httptest.NewRequest(tt.method, tt.loadUrl, bytes.NewReader(tt.loadBody))
+			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
+			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
 			h := handler.Service(cfg)
 			h.ServeHTTP(writer, storeReq)
