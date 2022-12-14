@@ -9,9 +9,18 @@ import (
 	"testing"
 
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
+
+func JSONtoByte(s string) []byte {
+	var req bytes.Buffer
+	if err := json.Compact(&req, []byte(s)); err != nil {
+		return nil
+	}
+	return req.Bytes()
+}
 
 func TestService(t *testing.T) {
 	type want struct {
@@ -110,19 +119,11 @@ func TestService(t *testing.T) {
 			name:   "should response 200 when valid gauge",
 			method: "POST",
 			url:    "http://localhost:8080/update",
-			body: func() []byte {
-				var req bytes.Buffer
-				r := []byte(`{
-						"id": "Alloc",
-						"type": "gauge",
-						"value": 31337.9
-					}`)
-				err := json.Compact(&req, r)
-				if err != nil {
-					return nil
-				}
-				return req.Bytes()
-			}(),
+			body: JSONtoByte(`{
+									"id": "Alloc",
+									"type": "gauge",
+									"value": 31337.9
+								}`),
 			want: want{
 				code: 200,
 			},
@@ -131,19 +132,11 @@ func TestService(t *testing.T) {
 			name:   "should response 200 when valid counter",
 			method: "POST",
 			url:    "http://localhost:8080/update",
-			body: func() []byte {
-				var req bytes.Buffer
-				r := []byte(`{
-						"id": "Poll",
-						"type": "counter",
-						"value": 313379
-					}`)
-				err := json.Compact(&req, r)
-				if err != nil {
-					return nil
-				}
-				return req.Bytes()
-			}(),
+			body: JSONtoByte(`{
+									"id": "Poll",
+									"type": "counter",
+									"delta": 313379
+								}`),
 			want: want{
 				code: 200,
 			},
@@ -238,6 +231,105 @@ func Test_metricStore(t *testing.T) {
 				actual, _ := io.ReadAll(res.Body)
 				assert.Equal(t, tt.want.value, string(actual))
 			}
+		})
+	}
+}
+
+func Test_metricJSONLoad(t *testing.T) {
+	type want struct {
+		code   int
+		metric metric.Metric
+	}
+	tests := []struct {
+		name      string
+		method    string
+		storeUrl  string
+		storeBody []byte
+		loadUrl   string
+		loadBody  []byte
+		want      want
+	}{
+		{
+			name:     "should return 200 and update gauge value",
+			method:   "POST",
+			storeUrl: "http://localhost:8080/update",
+			storeBody: JSONtoByte(`{
+										"id":"Alloc",
+										"type": "gauge",
+										"value": 555.99
+									}`),
+			loadUrl: "http://localhost:8080/value",
+			loadBody: JSONtoByte(`{
+										"id":"Alloc",
+										"type":"gauge"
+									}`),
+			want: want{
+				code:   200,
+				metric: metric.NewGaugeMetric("Alloc", 555.99),
+			},
+		},
+		{
+			name:     "should return 200 and update counter value",
+			method:   "POST",
+			storeUrl: "http://localhost:8080/update",
+			storeBody: JSONtoByte(`{
+										"id":"PollCounter",
+										"type": "counter",
+										"delta": 123456
+									}`),
+			loadUrl: "http://localhost:8080/value",
+			loadBody: JSONtoByte(`{
+										"id":"PollCounter",
+										"type":"counter"
+									}`),
+			want: want{
+				code:   200,
+				metric: metric.NewCounterMetric("PollCounter", 123456),
+			},
+		},
+		{
+			name:     "should return 400 when invalid metric",
+			method:   "POST",
+			storeUrl: "http://localhost:8080/update",
+			storeBody: JSONtoByte(`{
+										"id":"Allocr",
+										"type": "gauge",
+										"delta": 123456
+									}`),
+			loadUrl: "http://localhost:8080/value",
+			want: want{
+				code: 400,
+			},
+		},
+	}
+
+	cfg := handler.ServerConfig{
+		Repo: storage.GetMemStorageInstance(),
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storeReq := httptest.NewRequest(tt.method, tt.storeUrl, bytes.NewReader(tt.storeBody))
+			loadReq := httptest.NewRequest(tt.method, tt.loadUrl, bytes.NewReader(tt.loadBody))
+			writer := httptest.NewRecorder()
+			h := handler.Service(cfg)
+			h.ServeHTTP(writer, storeReq)
+			h.ServeHTTP(writer, loadReq)
+			res := writer.Result()
+			defer res.Body.Close()
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			if res.StatusCode != http.StatusOK {
+				return
+			}
+
+			actual, _ := io.ReadAll(res.Body)
+			var actualMetric metric.Metric
+			err := json.Unmarshal(actual, &actualMetric)
+			if err != nil {
+				panic(err)
+			}
+
+			assert.Equal(t, true, tt.want.metric.Equal(&actualMetric))
 		})
 	}
 }

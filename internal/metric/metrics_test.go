@@ -219,3 +219,35 @@ func TestMetric_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValid(t *testing.T) {
+	type args struct {
+		m Metric
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "should return true when valid gauge struct",
+			args: args{m: NewGaugeMetric("Alloc", 123.456)},
+			want: true,
+		},
+		{
+			name: "should return true when valid counter struct",
+			args: args{m: NewCounterMetric("Poll", 123)},
+			want: true,
+		},
+		{
+			name: "should return false when invalid struct",
+			args: args{m: Metric{ID: "Invalid", MType: Gauge, Delta: func(i int64) *int64 { return &i }(123)}},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, IsValid(tt.args.m), "IsValid(%v)", tt.args.m)
+		})
+	}
+}

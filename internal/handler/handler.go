@@ -71,7 +71,7 @@ func metricStore(persist service.PersistMetric) http.HandlerFunc {
 	}
 }
 
-func metricJsonStore(persist service.PersistMetric) http.HandlerFunc {
+func metricJSONStore(persist service.PersistMetric) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newMetric metric.Metric
 
@@ -81,9 +81,49 @@ func metricJsonStore(persist service.PersistMetric) http.HandlerFunc {
 			return
 		}
 
+		if !metric.IsValid(newMetric) {
+			log.Error.Printf("Invalid metric: %v", newMetric)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
 		persistErr := persist.SaveMetric(newMetric)
 		if persistErr != nil {
 			log.Error.Println("Can`t save metric ", persistErr)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func metricJSONLoad(repository storage.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var keyMetric metric.Metric
+
+		if decErr := json.NewDecoder(r.Body).Decode(&keyMetric); decErr != nil {
+			log.Error.Println("Can`t unmarshall request ", decErr)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		resultMetric, findErr := repository.FindByID(keyMetric)
+		if findErr != nil {
+			log.Error.Printf("Metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
+			http.Error(w, "Metric not found", http.StatusNotFound)
+			return
+		}
+
+		resultBody, marshErr := json.Marshal(resultMetric)
+		if marshErr != nil {
+			log.Error.Printf("Can`t marshal struct: %v", resultMetric)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write(resultBody)
+		if err != nil {
+			log.Error.Print(err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -102,7 +142,7 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 		}
 		tmpMetric, findErr := repository.FindByID(keyMetric)
 		if findErr != nil {
-			log.Error.Printf("Metric not found with name: %v, type: %v", mName, mType)
+			log.Error.Printf("Metric not found with id: %v, type: %v", mName, mType)
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
@@ -126,8 +166,9 @@ func Service(config ServerConfig) http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/", rootHandler(config.Repo))
+	r.Post("/value", metricJSONLoad(config.Repo))
 	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
-	r.Post("/update", metricJsonStore(service.PersistMetric{Repo: config.Repo}))
+	r.Post("/update", metricJSONStore(service.PersistMetric{Repo: config.Repo}))
 	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
 
 	return r

@@ -140,18 +140,29 @@ func (m *Metric) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func NewGaugeMetric(name string, value float64) Metric {
+func NewGaugeMetric(ID string, value float64) Metric {
 	var m Metric
-	m.setName(name)
+	m.setName(ID)
 	m.setGaugeValue(value)
 	return m
 }
 
-func NewCounterMetric(name string, value int64) Metric {
+func NewCounterMetric(ID string, value int64) Metric {
 	var m Metric
-	m.setName(name)
+	m.setName(ID)
 	m.setCounterValue(value)
 	return m
+}
+
+func IsValid(m Metric) bool {
+	switch m.MType {
+	case Gauge:
+		return m.Value != nil
+	case Counter:
+		return m.Delta != nil
+	default:
+		return false
+	}
 }
 
 type NewMetricError struct {
@@ -160,7 +171,7 @@ type NewMetricError struct {
 	ValueError bool
 }
 
-func NewMetric(name string, typeName string, value string) (m Metric, err NewMetricError) {
+func NewMetric(ID string, typeName string, value string) (m Metric, err NewMetricError) {
 	t, typErr := NewType(typeName)
 	if typErr != nil {
 		return m, NewMetricError{
@@ -179,7 +190,7 @@ func NewMetric(name string, typeName string, value string) (m Metric, err NewMet
 					ValueError: true,
 				}
 			}
-			m = NewGaugeMetric(name, v)
+			m = NewGaugeMetric(ID, v)
 		}
 	case Counter:
 		{
@@ -190,7 +201,7 @@ func NewMetric(name string, typeName string, value string) (m Metric, err NewMet
 					ValueError: true,
 				}
 			}
-			m = NewCounterMetric(name, v)
+			m = NewCounterMetric(ID, v)
 		}
 	}
 	return m, NewMetricError{}
