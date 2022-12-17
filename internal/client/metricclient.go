@@ -6,16 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/go-resty/resty/v2"
 )
 
 const (
-	updateEndpoint = "/update/"
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
-
+	updateEndpoint   = "/update/"
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
@@ -40,36 +38,29 @@ func (m *metricUpdate) get() []metric.Metric {
 	return m.value
 }
 
-type Settings struct {
-	ServerAddr string
-}
-
 type MetricClient struct {
-	Ctx      context.Context
-	Wg       *sync.WaitGroup
-	Settings Settings
-	client   *resty.Client
+	Ctx    context.Context
+	Wg     *sync.WaitGroup
+	Config config.Agent
+	client *resty.Client
 }
 
-func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, settings Settings) MetricClient {
-	if len(settings.ServerAddr) == 0 {
-		settings.ServerAddr = "http://localhost:8080"
-	}
+func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, config config.Agent) MetricClient {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
 		SetRetryWaitTime(retryWaitTime).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
 	return MetricClient{
-		Ctx:      ctx,
-		Wg:       wg,
-		Settings: settings,
-		client:   client,
+		Ctx:    ctx,
+		Wg:     wg,
+		Config: config,
+		client: client,
 	}
 }
 
 func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(pollInterval)
+	ticker := time.NewTicker(c.Config.PollInterval)
 	defer ticker.Stop()
 	for {
 		metricUpdate.set(mUpdate())
@@ -84,7 +75,7 @@ func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpda
 }
 
 func (c *MetricClient) send(metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(reportInterval)
+	ticker := time.NewTicker(c.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
 		metrics := metricUpdate.get()
@@ -116,7 +107,7 @@ func (c *MetricClient) postMetric(metric metric.Metric) error {
 		SetContext(c.Ctx).
 		SetHeader("Content-Type", "application/json").
 		SetBody(body).
-		Post(c.Settings.ServerAddr + updateEndpoint)
+		Post(c.Config.Address + updateEndpoint)
 	if err != nil {
 		return err
 	}

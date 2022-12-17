@@ -8,25 +8,25 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
-)
-
-const (
-	serverAddr = "localhost:8080"
+	"github.com/caarlos0/env/v6"
 )
 
 func main() {
+	var cfg config.Server
+	if err := env.Parse(&cfg); err != nil {
+		log.Error.Fatal(err)
+	}
+	cfg.Properties.Repo = storage.GetMemStorageInstance()
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
-	}
-
-	server := &http.Server{Addr: serverAddr, Handler: handler.Service(cfg)}
+	server := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
 
 	go func() {
 		<-shutdown

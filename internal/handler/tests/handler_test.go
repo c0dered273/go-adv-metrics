@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
@@ -151,8 +152,11 @@ func TestService(t *testing.T) {
 		},
 	}
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
+	cfg := config.Server{
+		Address: "localhost:8080",
+		Properties: config.Properties{
+			Repo: storage.GetMemStorageInstance(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -218,8 +222,11 @@ func Test_metricStore(t *testing.T) {
 		},
 	}
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
+	cfg := config.Server{
+		Address: "localhost:8080",
+		Properties: config.Properties{
+			Repo: storage.GetMemStorageInstance(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -311,8 +318,11 @@ func Test_metricJSONLoad(t *testing.T) {
 		},
 	}
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
+	cfg := config.Server{
+		Address: "localhost:8080",
+		Properties: config.Properties{
+			Repo: storage.GetMemStorageInstance(),
+		},
 	}
 
 	for _, tt := range tests {

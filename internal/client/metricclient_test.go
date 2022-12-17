@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/stretchr/testify/assert"
 )
@@ -70,8 +71,14 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			}))
 			defer srv.Close()
 
+			cfg := config.Agent{
+				Address:        srv.URL,
+				ReportInterval: 10 * time.Second,
+				PollInterval:   2 * time.Second,
+			}
+
 			upd := metric.GetUpdatable(func() []metric.Metric { return []metric.Metric{tt.metric} })
-			metricClient := NewMetricClient(ctx, &wg, Settings{ServerAddr: srv.URL})
+			metricClient := NewMetricClient(ctx, &wg, cfg)
 			metricClient.SendUpdateContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)
