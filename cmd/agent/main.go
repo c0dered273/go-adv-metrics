@@ -7,17 +7,13 @@ import (
 	"sync"
 	"syscall"
 
-	clients "github.com/c0dered273/go-adv-metrics/internal/client"
-	"github.com/c0dered273/go-adv-metrics/internal/config"
+	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
-	"github.com/caarlos0/env/v6"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 )
 
 func main() {
-	var cfg config.Agent
-	if err := env.Parse(&cfg); err != nil {
-		log.Error.Fatal(err)
-	}
+	cfg := service.NewAgentConfig()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -26,7 +22,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	metricClient := clients.NewMetricClient(ctx, &wg, cfg)
+	metricClient := clients.NewMetricAgent(ctx, &wg, cfg)
 	metricClient.SendAllMetricsContinuously()
 
 	<-shutdown

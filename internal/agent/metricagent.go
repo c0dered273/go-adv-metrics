@@ -1,4 +1,4 @@
-package client
+package agent
 
 import (
 	"context"
@@ -38,20 +38,20 @@ func (m *metricUpdate) get() []metric.Metric {
 	return m.value
 }
 
-type MetricClient struct {
+type MetricAgent struct {
 	Ctx    context.Context
 	Wg     *sync.WaitGroup
 	Config config.Agent
 	client *resty.Client
 }
 
-func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, config config.Agent) MetricClient {
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config config.Agent) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
 		SetRetryWaitTime(retryWaitTime).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
-	return MetricClient{
+	return MetricAgent{
 		Ctx:    ctx,
 		Wg:     wg,
 		Config: config,
@@ -59,7 +59,7 @@ func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, config config.Agen
 	}
 }
 
-func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
+func (c *MetricAgent) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
 	ticker := time.NewTicker(c.Config.PollInterval)
 	defer ticker.Stop()
 	for {
@@ -74,7 +74,7 @@ func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpda
 	}
 }
 
-func (c *MetricClient) send(metricUpdate *metricUpdate) {
+func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 	ticker := time.NewTicker(c.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
@@ -97,7 +97,7 @@ func (c *MetricClient) send(metricUpdate *metricUpdate) {
 	}
 }
 
-func (c *MetricClient) postMetric(metric metric.Metric) error {
+func (c *MetricAgent) postMetric(metric metric.Metric) error {
 	body, marshErr := json.Marshal(metric)
 	if marshErr != nil {
 		return marshErr
@@ -115,7 +115,7 @@ func (c *MetricClient) postMetric(metric metric.Metric) error {
 	return nil
 }
 
-func (c *MetricClient) SendUpdateContinuously(mUpdate metric.Updatable) {
+func (c *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
 	var metricUpdate metricUpdate
 
 	go c.update(mUpdate, &metricUpdate)
@@ -124,7 +124,7 @@ func (c *MetricClient) SendUpdateContinuously(mUpdate metric.Updatable) {
 	})
 }
 
-func (c *MetricClient) SendAllMetricsContinuously() {
+func (c *MetricAgent) SendAllMetricsContinuously() {
 	allMetrics := metric.GetUpdatable(
 		metric.NewMemStats,
 	)

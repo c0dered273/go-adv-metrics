@@ -8,19 +8,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
-	"github.com/caarlos0/env/v6"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 )
 
 func main() {
-	var cfg config.Server
-	if err := env.Parse(&cfg); err != nil {
-		log.Error.Fatal(err)
-	}
-	cfg.Properties.Repo = storage.GetMemStorageInstance()
+	cfg := service.NewServerConfig()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

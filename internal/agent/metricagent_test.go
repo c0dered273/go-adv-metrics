@@ -1,4 +1,4 @@
-package client
+package agent
 
 import (
 	"bytes"
@@ -78,7 +78,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			}
 
 			upd := metric.GetUpdatable(func() []metric.Metric { return []metric.Metric{tt.metric} })
-			metricClient := NewMetricClient(ctx, &wg, cfg)
+			metricClient := NewMetricAgent(ctx, &wg, cfg)
 			metricClient.SendUpdateContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)

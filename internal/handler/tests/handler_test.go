@@ -154,9 +154,7 @@ func TestService(t *testing.T) {
 
 	cfg := config.Server{
 		Address: "localhost:8080",
-		Properties: config.Properties{
-			Repo: storage.GetMemStorageInstance(),
-		},
+		Repo:    storage.GetMemStorageInstance(),
 	}
 
 	for _, tt := range tests {
@@ -224,9 +222,7 @@ func Test_metricStore(t *testing.T) {
 
 	cfg := config.Server{
 		Address: "localhost:8080",
-		Properties: config.Properties{
-			Repo: storage.GetMemStorageInstance(),
-		},
+		Repo:    storage.GetMemStorageInstance(),
 	}
 
 	for _, tt := range tests {
@@ -320,9 +316,7 @@ func Test_metricJSONLoad(t *testing.T) {
 
 	cfg := config.Server{
 		Address: "localhost:8080",
-		Properties: config.Properties{
-			Repo: storage.GetMemStorageInstance(),
-		},
+		Repo:    storage.GetMemStorageInstance(),
 	}
 
 	for _, tt := range tests {
