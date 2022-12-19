@@ -154,7 +154,7 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 	}
 }
 
-func Service(config config.Server) http.Handler {
+func Service(config *config.ServerConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)

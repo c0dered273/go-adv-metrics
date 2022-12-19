@@ -152,7 +152,7 @@ func TestService(t *testing.T) {
 		},
 	}
 
-	cfg := config.Server{
+	cfg := &config.ServerConfig{
 		Address: "localhost:8080",
 		Repo:    storage.NewMemStorage(),
 	}
@@ -220,7 +220,7 @@ func Test_metricStore(t *testing.T) {
 		},
 	}
 
-	cfg := config.Server{
+	cfg := &config.ServerConfig{
 		Address: "localhost:8080",
 		Repo:    storage.NewMemStorage(),
 	}
@@ -314,7 +314,7 @@ func Test_metricJSONLoad(t *testing.T) {
 		},
 	}
 
-	cfg := config.Server{
+	cfg := &config.ServerConfig{
 		Address: "localhost:8080",
 		Repo:    storage.NewMemStorage(),
 	}

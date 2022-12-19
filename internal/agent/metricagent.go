@@ -41,11 +41,11 @@ func (m *metricUpdate) get() []metric.Metric {
 type MetricAgent struct {
 	Ctx    context.Context
 	Wg     *sync.WaitGroup
-	Config config.Agent
+	Config *config.AgentConfig
 	client *resty.Client
 }
 
-func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config config.Agent) MetricAgent {
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.AgentConfig) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).

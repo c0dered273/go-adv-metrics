@@ -13,11 +13,11 @@ import (
 )
 
 func main() {
-	cfg := service.NewAgentConfig()
-
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	ctx, cancel := context.WithCancel(context.Background())
+
+	cfg := service.NewAgentConfig()
 
 	var wg sync.WaitGroup
 	wg.Add(2)

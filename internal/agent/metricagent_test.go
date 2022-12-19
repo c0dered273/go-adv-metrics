@@ -71,7 +71,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			cfg := config.Agent{
+			cfg := &config.AgentConfig{
 				Address:        srv.URL,
 				ReportInterval: 10 * time.Second,
 				PollInterval:   2 * time.Second,
