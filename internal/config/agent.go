@@ -22,7 +22,7 @@ type AgentConfig struct {
 func GetAgentConfig() *AgentConfig {
 	agentCfg := &AgentConfig{}
 	agentEnv := &AgentEnv{}
-	if err := env.Parse(&agentEnv); err != nil {
+	if err := env.Parse(agentEnv); err != nil {
 		log.Error.Fatal(err)
 	}
 
