@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 
 	"github.com/c0dered273/go-adv-metrics/internal/config"
@@ -9,7 +10,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
-func NewServerConfig() config.Server {
+func NewServerConfig(ctx context.Context) config.Server {
 	var cfg config.Server
 	if err := env.Parse(&cfg); err != nil {
 		log.Error.Fatal(err)
@@ -20,7 +21,7 @@ func NewServerConfig() config.Server {
 		cfg.Address = split[1]
 	}
 
-	cfg.Repo = storage.GetMemStorageInstance()
+	cfg.Repo = storage.NewFileStorage(cfg.StoreFile, cfg.StoreInterval, cfg.Restore, ctx)
 
 	return cfg
 }

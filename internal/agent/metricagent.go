@@ -97,8 +97,8 @@ func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 	}
 }
 
-func (c *MetricAgent) postMetric(metric metric.Metric) error {
-	body, marshErr := json.Marshal(metric)
+func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
+	body, marshErr := json.Marshal(newMetric)
 	if marshErr != nil {
 		return marshErr
 	}
@@ -111,7 +111,7 @@ func (c *MetricAgent) postMetric(metric metric.Metric) error {
 	if err != nil {
 		return err
 	}
-	log.Info.Printf("Metric update success %v %v %v", response.StatusCode(), response.Request.Method, response.Request.URL)
+	log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
 	return nil
 }
 

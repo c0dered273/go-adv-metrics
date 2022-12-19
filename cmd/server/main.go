@@ -14,12 +14,11 @@ import (
 )
 
 func main() {
-	cfg := service.NewServerConfig()
-
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
+	cfg := service.NewServerConfig(serverCtx)
 	server := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
 
 	go func() {

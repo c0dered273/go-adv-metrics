@@ -13,6 +13,9 @@ type Agent struct {
 }
 
 type Server struct {
-	Address string `env:"ADDRESS" envDefault:"localhost:8080"`
-	Repo    *storage.MemStorage
+	Address       string        `env:"ADDRESS" envDefault:"localhost:8080"`
+	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"300s"`
+	StoreFile     string        `env:"STORE_FILE" envDefault:"/tmp/devops-metrics-db.json"`
+	Restore       bool          `env:"RESTORE" envDefault:"true"`
+	Repo          storage.Repository
 }
