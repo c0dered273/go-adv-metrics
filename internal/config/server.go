@@ -31,10 +31,10 @@ func GetServerConfig() *ServerConfig {
 		log.Error.Fatal(err)
 	}
 
-	pflag.StringVar(&srvCfg.Address, "a", srvEnv.Address, "Server address:port")
-	pflag.DurationVar(&srvCfg.StoreInterval, "i", srvEnv.StoreInterval, "Writing metrics to disk interval")
-	pflag.StringVar(&srvCfg.StoreFile, "f", srvEnv.StoreFile, "Storage filename")
-	pflag.BoolVar(&srvCfg.Restore, "r", srvEnv.Restore, "Is restore metrics from disk")
+	pflag.StringVarP(&srvCfg.Address, "address", "a", srvEnv.Address, "Server address:port")
+	pflag.DurationVarP(&srvCfg.StoreInterval, "store_interval", "i", srvEnv.StoreInterval, "Writing metrics to disk interval")
+	pflag.StringVarP(&srvCfg.StoreFile, "filename", "f", srvEnv.StoreFile, "Storage filename")
+	pflag.BoolVarP(&srvCfg.Restore, "restore", "r", srvEnv.Restore, "Is restore metrics from disk")
 	pflag.Parse()
 
 	return &ServerConfig{

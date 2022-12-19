@@ -26,9 +26,9 @@ func GetAgentConfig() *AgentConfig {
 		log.Error.Fatal(err)
 	}
 
-	pflag.StringVar(&agentCfg.Address, "a", agentEnv.Address, "Server address:port")
-	pflag.DurationVar(&agentCfg.ReportInterval, "r", agentEnv.ReportInterval, "Send metrics to server interval")
-	pflag.DurationVar(&agentCfg.PollInterval, "p", agentEnv.PollInterval, "Collect metrics interval")
+	pflag.StringVarP(&agentCfg.Address, "address", "a", agentEnv.Address, "Server address:port")
+	pflag.DurationVarP(&agentCfg.ReportInterval, "report_interval", "r", agentEnv.ReportInterval, "Send metrics to server interval")
+	pflag.DurationVarP(&agentCfg.PollInterval, "poll_interval", "p", agentEnv.PollInterval, "Collect metrics interval")
 	pflag.Parse()
 
 	return &AgentConfig{
