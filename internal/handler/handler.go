@@ -9,6 +9,7 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -156,6 +157,8 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 
 func Service(config *config.ServerConfig) http.Handler {
 	r := chi.NewRouter()
+	r.Use(middleware2.GzipResponseEncoder)
+	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
