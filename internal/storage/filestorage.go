@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"os"
@@ -16,6 +15,8 @@ type FileStorage struct {
 	ctx         context.Context
 	mx          *sync.Mutex
 	file        *os.File
+	encoder     *json.Encoder
+	decoder     *json.Decoder
 	memCache    *MemStorage
 	isSyncStore bool
 }
@@ -53,20 +54,16 @@ func (f *FileStorage) FindAll() ([]metric.Metric, error) {
 }
 
 func (f *FileStorage) ReadMetrics() error {
-	var rsl []metric.Metric
+	data := metric.Metrics{}
 
 	f.mx.Lock()
-	scanner := bufio.NewScanner(f.file)
-	for scanner.Scan() {
-		var m metric.Metric
-		if err := json.Unmarshal(scanner.Bytes(), &m); err != nil {
-			return err
-		}
-		rsl = append(rsl, m)
+	decErr := f.decoder.Decode(&data)
+	if decErr != nil {
+		return decErr
 	}
 	f.mx.Unlock()
 
-	if err := f.memCache.SaveAll(rsl); err != nil {
+	if err := f.memCache.SaveAll(data.Metrics); err != nil {
 		return err
 	}
 	return nil
@@ -77,28 +74,18 @@ func (f *FileStorage) WriteMetrics() error {
 	if faErr != nil {
 		return faErr
 	}
-	data := make([]byte, 0)
-
-	for _, m := range cached {
-		byteMetric, mErr := json.Marshal(m)
-		if mErr != nil {
-			return mErr
-		}
-		data = append(data, byteMetric...)
-		data = append(data, '\n')
+	if len(cached) == 0 {
+		return nil
 	}
+	data := metric.Metrics{Metrics: cached}
 
 	f.mx.Lock()
 	if _, sErr := f.file.Seek(0, 0); sErr != nil {
 		return sErr
 	}
-	writer := bufio.NewWriter(f.file)
-	if _, wErr := writer.Write(data); wErr != nil {
-		return wErr
-	}
-
-	if fErr := writer.Flush(); fErr != nil {
-		return fErr
+	encErr := f.encoder.Encode(&data)
+	if encErr != nil {
+		return encErr
 	}
 	f.mx.Unlock()
 
@@ -134,28 +121,29 @@ func (f *FileStorage) asyncStore(storeInterval time.Duration) {
 	}()
 }
 
-func NewFileStorage(fileName string, storeInterval time.Duration, isAppend bool, ctx context.Context) *FileStorage {
-	var flags int
-	if isAppend {
-		flags = os.O_RDWR | os.O_CREATE
-	} else {
-		flags = os.O_RDWR | os.O_CREATE | os.O_TRUNC
-	}
-
-	file, oErr := os.OpenFile(fileName, flags, 0777)
+func NewFileStorage(fileName string, storeInterval time.Duration, isRestore bool, ctx context.Context) *FileStorage {
+	file, oErr := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_SYNC, 0777)
 	if oErr != nil {
 		log.Error.Panic("can`t open file: ", fileName)
 	}
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	decoder := json.NewDecoder(file)
+
+	isSyncStore := storeInterval == 0
 
 	fs := &FileStorage{
 		ctx:         ctx,
 		mx:          new(sync.Mutex),
 		file:        file,
+		encoder:     encoder,
+		decoder:     decoder,
 		memCache:    NewMemStorage(),
-		isSyncStore: storeInterval == 0,
+		isSyncStore: isSyncStore,
 	}
 
-	if isAppend {
+	if isRestore {
 		rdErr := fs.ReadMetrics()
 		if rdErr != nil {
 			log.Error.Fatalln("can't read metrics from disk ", rdErr)

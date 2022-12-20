@@ -32,6 +32,10 @@ func NewType(s string) (Type, error) {
 	return 0, fmt.Errorf("unknown metric type from [%v]", s)
 }
 
+type Metrics struct {
+	Metrics []Metric `json:"metrics"`
+}
+
 type Metric struct {
 	ID    string   `json:"id"`
 	MType Type     `json:"type"`
