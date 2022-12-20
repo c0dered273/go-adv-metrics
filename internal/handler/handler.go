@@ -37,6 +37,7 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 			Title:   "All metrics",
 			Metrics: mtr,
 		}
+		w.Header().Set("Content-Type", "text/html")
 		err = indexTemplate.Execute(w, indexData)
 		if err != nil {
 			log.Error.Println("Can`t execute templates", err)
