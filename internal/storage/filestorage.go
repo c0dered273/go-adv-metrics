@@ -56,6 +56,14 @@ func (f *FileStorage) FindAll() ([]metric.Metric, error) {
 func (f *FileStorage) ReadMetrics() error {
 	data := metric.Metrics{}
 
+	fileInfo, infoErr := f.file.Stat()
+	if infoErr != nil {
+		return infoErr
+	}
+	if fileInfo.Size() == 0 {
+		return nil
+	}
+
 	f.mx.Lock()
 	decErr := f.decoder.Decode(&data)
 	if decErr != nil {
