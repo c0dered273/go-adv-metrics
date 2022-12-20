@@ -26,7 +26,6 @@ func GzipResponseEncoder(next http.Handler) http.Handler {
 		}
 
 		gz, err := gzip.NewWriterLevel(w, gzip.DefaultCompression)
-		defer gz.Close()
 		if err != nil {
 			log.Error.Println("can`t create gzip encoder ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -37,6 +36,7 @@ func GzipResponseEncoder(next http.Handler) http.Handler {
 			ResponseWriter: w,
 			Writer:         gz,
 		}
+		defer gz.Close()
 
 		cw.Header().Set("Content-Encoding", "gzip")
 		next.ServeHTTP(cw, r)
