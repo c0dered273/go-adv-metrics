@@ -1,20 +1,19 @@
-package client
+package agent
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/go-resty/resty/v2"
 )
 
 const (
-	updateEndpoint = "/update"
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
-
+	updateEndpoint   = "/update/"
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
@@ -39,36 +38,29 @@ func (m *metricUpdate) get() []metric.Metric {
 	return m.value
 }
 
-type Settings struct {
-	ServerAddr string
+type MetricAgent struct {
+	Ctx    context.Context
+	Wg     *sync.WaitGroup
+	Config *config.AgentConfig
+	client *resty.Client
 }
 
-type MetricClient struct {
-	Ctx      context.Context
-	Wg       *sync.WaitGroup
-	Settings Settings
-	client   *resty.Client
-}
-
-func NewMetricClient(ctx context.Context, wg *sync.WaitGroup, settings Settings) MetricClient {
-	if len(settings.ServerAddr) == 0 {
-		settings.ServerAddr = "http://localhost:8080"
-	}
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.AgentConfig) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
 		SetRetryWaitTime(retryWaitTime).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
-	return MetricClient{
-		Ctx:      ctx,
-		Wg:       wg,
-		Settings: settings,
-		client:   client,
+	return MetricAgent{
+		Ctx:    ctx,
+		Wg:     wg,
+		Config: config,
+		client: client,
 	}
 }
 
-func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(pollInterval)
+func (c *MetricAgent) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(c.Config.PollInterval)
 	defer ticker.Stop()
 	for {
 		metricUpdate.set(mUpdate())
@@ -82,8 +74,8 @@ func (c *MetricClient) update(mUpdate metric.Updatable, metricUpdate *metricUpda
 	}
 }
 
-func (c *MetricClient) send(metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(reportInterval)
+func (c *MetricAgent) send(metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(c.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
 		metrics := metricUpdate.get()
@@ -105,25 +97,25 @@ func (c *MetricClient) send(metricUpdate *metricUpdate) {
 	}
 }
 
-func (c *MetricClient) postMetric(metric metric.Metric) error {
-	pathParams := map[string]string{
-		"type":  metric.GetType().String(),
-		"name":  metric.GetName(),
-		"value": metric.GetStringValue(),
+func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
+	body, marshErr := json.Marshal(newMetric)
+	if marshErr != nil {
+		return marshErr
 	}
+
 	response, err := c.client.R().
 		SetContext(c.Ctx).
-		SetHeader("Content-Type", "text/plain").
-		SetPathParams(pathParams).
-		Post(c.Settings.ServerAddr + updateEndpoint + "/{type}/{name}/{value}")
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(c.Config.Address + updateEndpoint)
 	if err != nil {
 		return err
 	}
-	log.Info.Printf("Metric update success %v %v %v", response.StatusCode(), response.Request.Method, response.Request.URL)
+	log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
 	return nil
 }
 
-func (c *MetricClient) SendUpdateContinuously(mUpdate metric.Updatable) {
+func (c *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
 	var metricUpdate metricUpdate
 
 	go c.update(mUpdate, &metricUpdate)
@@ -132,7 +124,7 @@ func (c *MetricClient) SendUpdateContinuously(mUpdate metric.Updatable) {
 	})
 }
 
-func (c *MetricClient) SendAllMetricsContinuously() {
+func (c *MetricAgent) SendAllMetricsContinuously() {
 	allMetrics := metric.GetUpdatable(
 		metric.NewMemStats,
 	)

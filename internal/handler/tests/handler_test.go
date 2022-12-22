@@ -1,14 +1,27 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
+
+func JSONtoByte(s string) []byte {
+	var req bytes.Buffer
+	if err := json.Compact(&req, []byte(s)); err != nil {
+		return nil
+	}
+	return req.Bytes()
+}
 
 func TestService(t *testing.T) {
 	type want struct {
@@ -19,6 +32,7 @@ func TestService(t *testing.T) {
 		name   string
 		method string
 		url    string
+		body   []byte
 		want   want
 	}{
 		{
@@ -110,15 +124,51 @@ func TestService(t *testing.T) {
 				code: 404,
 			},
 		},
+		{
+			name:   "should response 200 when valid gauge",
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body: JSONtoByte(`{
+									"id": "Alloc",
+									"type": "gauge",
+									"value": 31337.9
+								}`),
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:   "should response 200 when valid counter",
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body: JSONtoByte(`{
+									"id": "Poll",
+									"type": "counter",
+									"delta": 313379
+								}`),
+			want: want{
+				code: 200,
+			},
+		},
 	}
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
+	cfg := &config.ServerConfig{
+		Address: "localhost:8080",
+		Repo:    storage.NewMemStorage(),
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.method, tt.url, nil)
+			var request *http.Request
+			var bodyReader *bytes.Reader
+
+			if len(tt.body) != 0 {
+				bodyReader = bytes.NewReader(tt.body)
+				request = httptest.NewRequest(tt.method, tt.url, bodyReader)
+			} else {
+				request = httptest.NewRequest(tt.method, tt.url, nil)
+			}
+
 			writer := httptest.NewRecorder()
 			h := handler.Service(cfg)
 			h.ServeHTTP(writer, request)
@@ -170,8 +220,9 @@ func Test_metricStore(t *testing.T) {
 		},
 	}
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
+	cfg := &config.ServerConfig{
+		Address: "localhost:8080",
+		Repo:    storage.NewMemStorage(),
 	}
 
 	for _, tt := range tests {
@@ -191,6 +242,106 @@ func Test_metricStore(t *testing.T) {
 				actual, _ := io.ReadAll(res.Body)
 				assert.Equal(t, tt.want.value, string(actual))
 			}
+		})
+	}
+}
+
+func Test_metricJSONLoad(t *testing.T) {
+	type want struct {
+		code   int
+		metric metric.Metric
+	}
+	tests := []struct {
+		name      string
+		method    string
+		storeURL  string
+		storeBody []byte
+		loadURL   string
+		loadBody  []byte
+		want      want
+	}{
+		{
+			name:     "should return 200 and update gauge value",
+			method:   "POST",
+			storeURL: "http://localhost:8080/update/",
+			storeBody: JSONtoByte(`{
+										"id":"Alloc",
+										"type": "gauge",
+										"value": 555.99
+									}`),
+			loadURL: "http://localhost:8080/value/",
+			loadBody: JSONtoByte(`{
+										"id":"Alloc",
+										"type":"gauge"
+									}`),
+			want: want{
+				code:   200,
+				metric: metric.NewGaugeMetric("Alloc", 555.99),
+			},
+		},
+		{
+			name:     "should return 200 and update counter value",
+			method:   "POST",
+			storeURL: "http://localhost:8080/update/",
+			storeBody: JSONtoByte(`{
+										"id":"PollCounter",
+										"type": "counter",
+										"delta": 123456
+									}`),
+			loadURL: "http://localhost:8080/value/",
+			loadBody: JSONtoByte(`{
+										"id":"PollCounter",
+										"type":"counter"
+									}`),
+			want: want{
+				code:   200,
+				metric: metric.NewCounterMetric("PollCounter", 123456),
+			},
+		},
+		{
+			name:     "should return 400 when invalid metric",
+			method:   "POST",
+			storeURL: "http://localhost:8080/update/",
+			storeBody: JSONtoByte(`{
+										"id":"Allocr",
+										"type": "gauge",
+										"delta": 123456
+									}`),
+			loadURL: "http://localhost:8080/value/",
+			want: want{
+				code: 400,
+			},
+		},
+	}
+
+	cfg := &config.ServerConfig{
+		Address: "localhost:8080",
+		Repo:    storage.NewMemStorage(),
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
+			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
+			writer := httptest.NewRecorder()
+			h := handler.Service(cfg)
+			h.ServeHTTP(writer, storeReq)
+			h.ServeHTTP(writer, loadReq)
+			res := writer.Result()
+			defer res.Body.Close()
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			if res.StatusCode != http.StatusOK {
+				return
+			}
+
+			actual, _ := io.ReadAll(res.Body)
+			var actualMetric metric.Metric
+			err := json.Unmarshal(actual, &actualMetric)
+			if err != nil {
+				panic(err)
+			}
+
+			assert.Equal(t, true, tt.want.metric.Equal(&actualMetric))
 		})
 	}
 }

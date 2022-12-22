@@ -7,12 +7,9 @@ import (
 	"sync"
 	"syscall"
 
-	clients "github.com/c0dered273/go-adv-metrics/internal/client"
+	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
-)
-
-const (
-	serverAddr = "http://127.0.0.1:8080"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 )
 
 func main() {
@@ -20,10 +17,12 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	ctx, cancel := context.WithCancel(context.Background())
 
+	cfg := service.NewAgentConfig()
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	metricClient := clients.NewMetricClient(ctx, &wg, clients.Settings{ServerAddr: serverAddr})
+	metricClient := clients.NewMetricAgent(ctx, &wg, cfg)
 	metricClient.SendAllMetricsContinuously()
 
 	<-shutdown

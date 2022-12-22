@@ -10,11 +10,7 @@ import (
 
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
-)
-
-const (
-	serverAddr = "localhost:8080"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 )
 
 func main() {
@@ -22,11 +18,8 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	cfg := handler.ServerConfig{
-		Repo: storage.GetMemStorageInstance(),
-	}
-
-	server := &http.Server{Addr: serverAddr, Handler: handler.Service(cfg)}
+	cfg := service.NewServerConfig(serverCtx)
+	server := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
 
 	go func() {
 		<-shutdown

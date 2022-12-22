@@ -1,20 +1,25 @@
-package client
+package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 	type want struct {
-		url string
+		url  string
+		body []byte
 	}
 	tests := []struct {
 		name   string
@@ -25,14 +30,24 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			name:   "successfully return gauge metric",
 			metric: metric.NewGaugeMetric("FirstGauge", 31337.1),
 			want: want{
-				url: "/update/gauge/FirstGauge/31337.1",
+				url: "/update/",
+				body: []byte(`{
+								"id": "FirstGauge",
+								"type": "gauge",
+								"value": 31337.1
+							}`),
 			},
 		},
 		{
 			name:   "successfully return counter metric",
 			metric: metric.NewCounterMetric("FirstCounter", 12345),
 			want: want{
-				url: "/update/counter/FirstCounter/12345",
+				url: "/update/",
+				body: []byte(`{
+								"id": "FirstCounter",
+								"type": "counter",
+								"delta": 12345
+							}`),
 			},
 		},
 	}
@@ -44,12 +59,26 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			wg.Add(2)
 
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var expectBody bytes.Buffer
+				_ = json.Compact(&expectBody, tt.want.body)
+
+				actualBody, err := io.ReadAll(r.Body)
+				if err != nil {
+					panic(err)
+				}
 				assert.Equal(t, tt.want.url, r.URL.Path)
+				assert.JSONEq(t, expectBody.String(), string(actualBody))
 			}))
 			defer srv.Close()
 
+			cfg := &config.AgentConfig{
+				Address:        srv.URL,
+				ReportInterval: 10 * time.Second,
+				PollInterval:   2 * time.Second,
+			}
+
 			upd := metric.GetUpdatable(func() []metric.Metric { return []metric.Metric{tt.metric} })
-			metricClient := NewMetricClient(ctx, &wg, Settings{ServerAddr: srv.URL})
+			metricClient := NewMetricAgent(ctx, &wg, cfg)
 			metricClient.SendUpdateContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)

@@ -43,6 +43,20 @@ func (m *MemStorage) Save(newMetric metric.Metric) error {
 	return nil
 }
 
+func (m *MemStorage) SaveAll(metrics []metric.Metric) error {
+	for _, mtr := range metrics {
+		m.put(getID(mtr), mtr)
+	}
+	return nil
+}
+
+func (m *MemStorage) FindByID(keyMetric metric.Metric) (metric metric.Metric, err error) {
+	if result, ok := m.get(getID(keyMetric)); ok {
+		return result, nil
+	}
+	return metric, fmt.Errorf("storage: not found: %v %v", keyMetric.GetName(), keyMetric.GetType())
+}
+
 func (m *MemStorage) FindAll() (metrics []metric.Metric, err error) {
 	var result []metric.Metric
 	for v := range m.iterateValues() {
@@ -51,18 +65,15 @@ func (m *MemStorage) FindAll() (metrics []metric.Metric, err error) {
 	return result, nil
 }
 
-func (m *MemStorage) FindByID(newMetric metric.Metric) (metric metric.Metric, err error) {
-	if result, ok := m.get(getID(newMetric)); ok {
-		return result, nil
-	}
-	return metric, fmt.Errorf("storage: not found: %v %v", newMetric.GetName(), newMetric.GetType())
+func (m *MemStorage) Close() error {
+	return nil
 }
 
 func getID(newMetric metric.Metric) string {
 	return newMetric.GetName() + newMetric.GetType().String()
 }
 
-func GetMemStorageInstance() *MemStorage {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		str: make(map[string]metric.Metric),
 		mx:  new(sync.RWMutex),

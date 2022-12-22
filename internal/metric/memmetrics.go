@@ -41,12 +41,12 @@ func NewMemStats() []Metric {
 		NewGaugeMetric("NumForcedGC", float64(m.NumForcedGC)),
 		NewGaugeMetric("NumGC", float64(m.NumGC)),
 		NewGaugeMetric("OtherSys", float64(m.OtherSys)),
-		NewGaugeMetric("PauseTotalINs", float64(m.PauseTotalNs)),
+		NewGaugeMetric("PauseTotalNs", float64(m.PauseTotalNs)),
 		NewGaugeMetric("StackInuse", float64(m.StackInuse)),
 		NewGaugeMetric("StackSys", float64(m.StackSys)),
 		NewGaugeMetric("Sys", float64(m.Sys)),
 		NewGaugeMetric("TotalAlloc", float64(m.TotalAlloc)),
 		NewGaugeMetric("RandomValue", r.Float64()*1000000),
-		NewCounterMetric("PollCounter", pollCounter),
+		NewCounterMetric("PollCount", pollCounter),
 	}
 }
