@@ -1,6 +1,9 @@
 package metric
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -41,6 +44,7 @@ type Metric struct {
 	MType Type     `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
 func (m *Metric) GetName() string {
@@ -144,6 +148,40 @@ func (m *Metric) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+func (m *Metric) getHashSrc() []byte {
+	switch m.MType {
+	case Gauge:
+		return []byte(fmt.Sprintf("%s:gauge:%f", m.ID, *m.Value))
+	case Counter:
+		return []byte(fmt.Sprintf("%s:counter:%d", m.ID, *m.Delta))
+	}
+	return []byte{}
+}
+
+func (m *Metric) generateHash(hashKey string) []byte {
+	h := hmac.New(sha256.New, []byte(hashKey))
+	h.Write(m.getHashSrc())
+	return h.Sum(nil)
+}
+
+func (m *Metric) SetHash(hashKey string) {
+	if hashKey != "" {
+		m.Hash = hex.EncodeToString(m.generateHash(hashKey))
+	}
+}
+
+func (m *Metric) CheckHash(hashKey string) (bool, error) {
+	if hashKey != "" {
+		hashActual, hexErr := hex.DecodeString(m.Hash)
+		if hexErr != nil {
+			return false, hexErr
+		}
+		hashExpected := m.generateHash(hashKey)
+		return hmac.Equal(hashActual, hashExpected), nil
+	}
+	return true, nil
+}
+
 func NewGaugeMetric(ID string, value float64) Metric {
 	var m Metric
 	m.setName(ID)
@@ -175,7 +213,7 @@ type NewMetricError struct {
 	ValueError bool
 }
 
-func NewMetric(ID string, typeName string, value string) (m Metric, err NewMetricError) {
+func NewMetric(ID string, typeName string, value string, hashKey string) (m Metric, err NewMetricError) {
 	t, typErr := NewType(typeName)
 	if typErr != nil {
 		return m, NewMetricError{
@@ -208,6 +246,9 @@ func NewMetric(ID string, typeName string, value string) (m Metric, err NewMetri
 			m = NewCounterMetric(ID, v)
 		}
 	}
+
+	m.SetHash(hashKey)
+
 	return m, NewMetricError{}
 }
 

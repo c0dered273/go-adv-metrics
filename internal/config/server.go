@@ -12,6 +12,7 @@ type ServerConfig struct {
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
+	Key           string
 	Repo          storage.Repository
 }
 
@@ -20,6 +21,7 @@ func GetServerConfig() *ServerConfig {
 	pflag.StringVarP(&srvFlag.Address, "address", "a", Address, "Server address:port")
 	pflag.DurationVarP(&srvFlag.StoreInterval, "store_interval", "i", StoreInterval, "Writing metrics to disk interval")
 	pflag.StringVarP(&srvFlag.StoreFile, "filename", "f", StoreFile, "Storage filename")
+	pflag.StringVarP(&srvFlag.Key, "key", "k", "", "Metric sign hash key")
 	pflag.BoolVarP(&srvFlag.Restore, "restore", "r", Restore, "Is restore metrics from disk")
 	pflag.Parse()
 
@@ -28,5 +30,6 @@ func GetServerConfig() *ServerConfig {
 		StoreInterval: lookupEnvOrDuration("STORE_INTERVAL", srvFlag.StoreInterval),
 		StoreFile:     lookupEnvOrString("STORE_FILE", srvFlag.StoreFile),
 		Restore:       lookupEnvOrBool("RESTORE", srvFlag.Restore),
+		Key:           lookupEnvOrString("KEY", srvFlag.Key),
 	}
 }

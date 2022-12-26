@@ -81,9 +81,10 @@ func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 		metrics := metricUpdate.get()
 		if len(metrics) != 0 {
 			for _, m := range metrics {
+				m.SetHash(c.Config.Key)
 				err := c.postMetric(m)
 				if err != nil {
-					log.Error.Println("Unable to send update request ", err)
+					log.Error.Println("unable to send update request ", err)
 				}
 			}
 		}
@@ -111,7 +112,11 @@ func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
 	if err != nil {
 		return err
 	}
-	log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+	if response.IsSuccess() {
+		log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+	} else {
+		log.Info.Printf("Unable to update metric, status %d - %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+	}
 	return nil
 }
 
