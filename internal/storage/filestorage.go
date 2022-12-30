@@ -75,14 +75,14 @@ func (f *FileStorage) ReadMetrics() error {
 	}
 	f.mx.Unlock()
 
-	if err := f.memCache.SaveAll(context.Background(), data.Metrics); err != nil {
+	if err := f.memCache.SaveAll(f.ctx, data.Metrics); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (f *FileStorage) WriteMetrics() error {
-	cached, faErr := f.memCache.FindAll(context.Background())
+	cached, faErr := f.memCache.FindAll(f.ctx)
 	if faErr != nil {
 		return faErr
 	}

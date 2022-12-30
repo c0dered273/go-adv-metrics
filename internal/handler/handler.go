@@ -71,7 +71,7 @@ func metricStore(persist service.PersistMetric) http.HandlerFunc {
 			return
 		}
 
-		err := persist.SaveMetric(newMetric)
+		err := persist.SaveMetric(r.Context(), newMetric)
 		if err != nil {
 			log.Error.Println("can`t save metric ", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -108,7 +108,7 @@ func metricJSONStore(persist service.PersistMetric, config *config.ServerConfig)
 			return
 		}
 
-		persistErr := persist.SaveMetric(newMetric)
+		persistErr := persist.SaveMetric(r.Context(), newMetric)
 		if persistErr != nil {
 			log.Error.Println("can`t save metric ", persistErr)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
