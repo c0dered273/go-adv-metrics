@@ -17,7 +17,7 @@ func NewServerConfig(ctx context.Context) *config.ServerConfig {
 	}
 
 	if srvCfg.DatabaseDsn != "" {
-		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, ctx)
+		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
 	} else {
 		srvCfg.Repo = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
 	}

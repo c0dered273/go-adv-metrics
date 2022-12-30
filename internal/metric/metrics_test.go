@@ -63,7 +63,7 @@ func TestNewMetric(t *testing.T) {
 			wantM: Metric{
 				ID:    "GaugeOne",
 				MType: Gauge,
-				Value: func(v float64) *float64 { return &v }(31337),
+				Val:   func(v float64) *float64 { return &v }(31337),
 			},
 		},
 		{

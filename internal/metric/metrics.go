@@ -3,6 +3,7 @@ package metric
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,19 @@ const (
 var types = [...]string{
 	"gauge",
 	"counter",
+}
+
+func (t Type) Value() (driver.Value, error) {
+	return t.String(), nil
+}
+
+func (t *Type) Scan(src any) error {
+	sType, err := NewType(src.(string))
+	if err != nil {
+		return err
+	}
+	*t = sType
+	return nil
 }
 
 func (t Type) String() string {
@@ -43,7 +57,7 @@ type Metric struct {
 	ID    string   `json:"id"`
 	MType Type     `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
+	Val   *float64 `json:"value,omitempty"`
 	Hash  string   `json:"hash,omitempty"`
 }
 
@@ -60,12 +74,12 @@ func (m *Metric) GetType() Type {
 }
 
 func (m *Metric) GetGaugeValue() float64 {
-	return *m.Value
+	return *m.Val
 }
 
 func (m *Metric) setGaugeValue(v float64) {
 	m.MType = Gauge
-	m.Value = &v
+	m.Val = &v
 }
 
 func (m *Metric) GetCounterValue() int64 {
@@ -80,7 +94,7 @@ func (m *Metric) setCounterValue(v int64) {
 func (m *Metric) GetStringValue() string {
 	switch m.MType {
 	case Gauge:
-		return strconv.FormatFloat(*m.Value, 'f', -1, 64)
+		return strconv.FormatFloat(*m.Val, 'f', -1, 64)
 	case Counter:
 		return strconv.FormatInt(*m.Delta, 10)
 	default:
@@ -95,8 +109,8 @@ func (m *Metric) String() string {
 func (m *Metric) Equal(other *Metric) bool {
 	switch m.MType {
 	case Gauge:
-		fmt.Printf("*** %v ***", math.Abs(*m.Value-*other.Value))
-		return math.Abs(*m.Value-*other.Value) <= math.SmallestNonzeroFloat64
+		fmt.Printf("*** %v ***", math.Abs(*m.Val-*other.Val))
+		return math.Abs(*m.Val-*other.Val) <= math.SmallestNonzeroFloat64
 	case Counter:
 		return *m.Delta == *other.Delta
 	default:
@@ -151,7 +165,7 @@ func (m *Metric) UnmarshalJSON(bytes []byte) error {
 func (m *Metric) getHashSrc() []byte {
 	switch m.MType {
 	case Gauge:
-		return []byte(fmt.Sprintf("%s:gauge:%f", m.ID, *m.Value))
+		return []byte(fmt.Sprintf("%s:gauge:%f", m.ID, *m.Val))
 	case Counter:
 		return []byte(fmt.Sprintf("%s:counter:%d", m.ID, *m.Delta))
 	}
@@ -199,7 +213,7 @@ func NewCounterMetric(ID string, value int64) Metric {
 func IsValid(m Metric) bool {
 	switch m.MType {
 	case Gauge:
-		return m.Value != nil
+		return m.Val != nil
 	case Counter:
 		return m.Delta != nil
 	default:
