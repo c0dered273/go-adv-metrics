@@ -47,6 +47,16 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 	}
 }
 
+func connectionPingHandler(config *config.ServerConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		db := config.DBRepo.(*storage.DBStorage)
+		if err := db.Ping(); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 func metricStore(persist service.PersistMetric) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		newMetric, appError := metric.NewMetric(
@@ -182,6 +192,7 @@ func Service(config *config.ServerConfig) http.Handler {
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/", rootHandler(config.Repo))
+	r.Get("/ping", connectionPingHandler(config))
 	r.Post("/value/", metricJSONLoad(config))
 	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
 	r.Post("/update/", metricJSONStore(service.PersistMetric{Repo: config.Repo}, config))
