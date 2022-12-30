@@ -21,8 +21,8 @@ type FileStorage struct {
 	isSyncStore bool
 }
 
-func (f *FileStorage) Save(newMetric metric.Metric) error {
-	if sErr := f.memCache.Save(newMetric); sErr != nil {
+func (f *FileStorage) Save(ctx context.Context, newMetric metric.Metric) error {
+	if sErr := f.memCache.Save(ctx, newMetric); sErr != nil {
 		return sErr
 	}
 	if f.isSyncStore {
@@ -33,8 +33,8 @@ func (f *FileStorage) Save(newMetric metric.Metric) error {
 	return nil
 }
 
-func (f *FileStorage) SaveAll(metrics []metric.Metric) error {
-	if sErr := f.memCache.SaveAll(metrics); sErr != nil {
+func (f *FileStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error {
+	if sErr := f.memCache.SaveAll(ctx, metrics); sErr != nil {
 		return sErr
 	}
 	if f.isSyncStore {
@@ -45,12 +45,16 @@ func (f *FileStorage) SaveAll(metrics []metric.Metric) error {
 	return nil
 }
 
-func (f *FileStorage) FindByID(keyMetric metric.Metric) (metric.Metric, error) {
-	return f.memCache.FindByID(keyMetric)
+func (f *FileStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (metric.Metric, error) {
+	return f.memCache.FindByID(ctx, keyMetric)
 }
 
-func (f *FileStorage) FindAll() ([]metric.Metric, error) {
-	return f.memCache.FindAll()
+func (f *FileStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
+	return f.memCache.FindAll(ctx)
+}
+
+func (f *FileStorage) Ping() error {
+	return nil
 }
 
 func (f *FileStorage) ReadMetrics() error {
@@ -71,14 +75,14 @@ func (f *FileStorage) ReadMetrics() error {
 	}
 	f.mx.Unlock()
 
-	if err := f.memCache.SaveAll(data.Metrics); err != nil {
+	if err := f.memCache.SaveAll(context.Background(), data.Metrics); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (f *FileStorage) WriteMetrics() error {
-	cached, faErr := f.memCache.FindAll()
+	cached, faErr := f.memCache.FindAll(context.Background())
 	if faErr != nil {
 		return faErr
 	}

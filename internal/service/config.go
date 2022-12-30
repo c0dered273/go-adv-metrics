@@ -16,11 +16,10 @@ func NewServerConfig(ctx context.Context) *config.ServerConfig {
 		srvCfg.Address = split[1]
 	}
 
-	srvCfg.Repo = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
-
-	// TODO("Заменить файловое хранилище на базу данных")
 	if srvCfg.DatabaseDsn != "" {
-		srvCfg.DBRepo = storage.NewDBStorage(srvCfg.DatabaseDsn, ctx)
+		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, ctx)
+	} else {
+		srvCfg.Repo = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
 	}
 
 	return srvCfg

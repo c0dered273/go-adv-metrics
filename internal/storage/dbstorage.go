@@ -11,33 +11,38 @@ import (
 	"github.com/jackc/pgx/stdlib"
 )
 
+const (
+	DefaultTimeout = 15 * time.Second
+)
+
 type DBStorage struct {
-	db  *sql.DB
-	ctx context.Context
+	db           *sql.DB
+	ctx          context.Context
+	QueryTimeout time.Duration
 }
 
-func (ds *DBStorage) Save(metric metric.Metric) error {
+func (ds *DBStorage) Save(ctx context.Context, metric metric.Metric) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (ds *DBStorage) SaveAll(metrics []metric.Metric) error {
+func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (ds *DBStorage) FindByID(metric metric.Metric) (metric.Metric, error) {
+func (ds *DBStorage) FindByID(ctx context.Context, metric metric.Metric) (metric.Metric, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (ds *DBStorage) FindAll() ([]metric.Metric, error) {
+func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
 func (ds *DBStorage) Ping() error {
-	ctx, cancel := context.WithTimeout(ds.ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ds.ctx, ds.QueryTimeout)
 	defer cancel()
 	if err := ds.db.PingContext(ctx); err != nil {
 		return err
@@ -65,8 +70,9 @@ func NewDBStorage(databaseDsn string, ctx context.Context) *DBStorage {
 	db := stdlib.OpenDBFromPool(pool)
 
 	ds := &DBStorage{
-		db:  db,
-		ctx: ctx,
+		db:           db,
+		ctx:          ctx,
+		QueryTimeout: DefaultTimeout,
 	}
 
 	go func() {

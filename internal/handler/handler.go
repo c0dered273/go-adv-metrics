@@ -28,7 +28,7 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 			log.Error.Fatal(err)
 		}
 
-		allMetrics, _ := repository.FindAll()
+		allMetrics, _ := repository.FindAll(r.Context())
 		mtr := make([]string, len(allMetrics))
 		for i := 0; i < len(allMetrics); i++ {
 			mtr[i] = allMetrics[i].String()
@@ -49,8 +49,7 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 
 func connectionPingHandler(config *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		db := config.DBRepo.(*storage.DBStorage)
-		if err := db.Ping(); err != nil {
+		if err := config.Repo.Ping(); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -128,7 +127,7 @@ func metricJSONLoad(config *config.ServerConfig) http.HandlerFunc {
 			return
 		}
 
-		resultMetric, findErr := config.Repo.FindByID(keyMetric)
+		resultMetric, findErr := config.Repo.FindByID(r.Context(), keyMetric)
 		if findErr != nil {
 			log.Error.Printf("metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
 			http.Error(w, "Metric not found", http.StatusNotFound)
@@ -164,7 +163,7 @@ func metricLoad(repository storage.Repository) http.HandlerFunc {
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
-		tmpMetric, findErr := repository.FindByID(keyMetric)
+		tmpMetric, findErr := repository.FindByID(r.Context(), keyMetric)
 		if findErr != nil {
 			log.Error.Printf("metric not found with id: %v, type: %v", mName, mType)
 			http.Error(w, "Metric not found", http.StatusNotFound)

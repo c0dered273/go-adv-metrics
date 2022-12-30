@@ -10,7 +10,6 @@ import (
 type ServerConfig struct {
 	Address       string
 	DatabaseDsn   string
-	DBRepo        storage.Repository
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
