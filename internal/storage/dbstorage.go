@@ -71,6 +71,11 @@ func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
 		result = append(result, m)
 	}
 
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
