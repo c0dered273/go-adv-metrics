@@ -54,13 +54,13 @@ func (ds *DBStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (met
 }
 
 func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
-	result := make([]metric.Metric, 0, 0)
+	result := make([]metric.Metric, 0)
 	statement := "SELECT * FROM metrics"
 	rows, err := ds.db.QueryContext(ctx, statement)
-	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		m := metric.Metric{}
