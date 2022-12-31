@@ -16,7 +16,7 @@ const (
 )
 
 type DBStorage struct {
-	db           *sql.DB
+	DB           *sql.DB
 	ctx          context.Context
 	QueryTimeout time.Duration
 }
@@ -25,7 +25,8 @@ func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
 	statement := `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
 						ON CONFLICT (metric_name, metric_type)
 							DO UPDATE SET metric_delta = $3, metric_value = $4, hash = $5`
-	_, err := ds.db.ExecContext(ctx, statement, m.ID, m.MType.String(), m.Delta, m.Val, m.Hash)
+
+	_, err := ds.DB.ExecContext(ctx, statement, m.ID, m.MType.String(), m.Delta, m.Val, m.Hash)
 	if err != nil {
 		return err
 	}
@@ -43,9 +44,10 @@ func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error
 }
 
 func (ds *DBStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (metric.Metric, error) {
-	m := metric.Metric{}
 	statement := "SELECT * FROM metrics WHERE metric_name = $1 AND metric_type = $2"
-	row := ds.db.QueryRowContext(ctx, statement, keyMetric.ID, keyMetric.MType.String())
+
+	m := metric.Metric{}
+	row := ds.DB.QueryRowContext(ctx, statement, keyMetric.ID, keyMetric.MType.String())
 	err := row.Scan(&m.ID, &m.MType, &m.Delta, &m.Val, &m.Hash)
 	if err != nil {
 		return metric.Metric{}, err
@@ -54,9 +56,10 @@ func (ds *DBStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (met
 }
 
 func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
-	result := make([]metric.Metric, 0)
 	statement := "SELECT * FROM metrics"
-	rows, err := ds.db.QueryContext(ctx, statement)
+
+	result := make([]metric.Metric, 0)
+	rows, err := ds.DB.QueryContext(ctx, statement)
 	if err != nil {
 		return nil, err
 	}
@@ -82,14 +85,14 @@ func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
 func (ds *DBStorage) Ping() error {
 	ctx, cancel := context.WithTimeout(ds.ctx, ds.QueryTimeout)
 	defer cancel()
-	if err := ds.db.PingContext(ctx); err != nil {
+	if err := ds.DB.PingContext(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (ds *DBStorage) Close() error {
-	return ds.db.Close()
+	return ds.DB.Close()
 }
 
 func (ds *DBStorage) initDB(isRestore bool) error {
@@ -98,12 +101,12 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 	go func() {
 		<-ctx.Done()
 		if ctx.Err() == context.DeadlineExceeded {
-			log.Error.Fatalln("dbStorage: db schema init timeout", ctx.Err())
+			log.Error.Fatalln("dbStorage: DB schema init timeout", ctx.Err())
 		}
 	}()
 
 	if !isRestore {
-		_, dErr := ds.db.ExecContext(ctx, "DROP TABLE IF EXISTS metrics")
+		_, dErr := ds.DB.ExecContext(ctx, "DROP TABLE IF EXISTS metrics")
 		if dErr != nil {
 			log.Error.Println("dbStorage: can't drop table 'metrics'")
 			return dErr
@@ -119,7 +122,7 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 					hash varchar(64),
     				CONSTRAINT metric_pk PRIMARY KEY(metric_name, metric_type)
 				)`
-	_, cErr := ds.db.ExecContext(ctx, statement)
+	_, cErr := ds.DB.ExecContext(ctx, statement)
 	if cErr != nil {
 		log.Error.Println("dbStorage: can't create table 'metrics'")
 		return cErr
@@ -144,21 +147,21 @@ func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBSt
 	db := stdlib.OpenDBFromPool(pool)
 
 	ds := &DBStorage{
-		db:           db,
+		DB:           db,
 		ctx:          ctx,
 		QueryTimeout: DefaultTimeout,
 	}
 
 	err := ds.initDB(isRestore)
 	if err != nil {
-		log.Error.Fatalln("dbStorage: can't init db")
+		log.Error.Fatalln("dbStorage: can't init DB")
 	}
 
 	go func() {
 		<-ds.ctx.Done()
 		err := ds.Close()
 		if err != nil {
-			log.Error.Println("dbStorage: can't close db", err)
+			log.Error.Println("dbStorage: can't close DB", err)
 		}
 	}()
 

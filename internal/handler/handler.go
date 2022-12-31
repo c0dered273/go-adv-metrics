@@ -26,7 +26,7 @@ func rootHandler(config *service.ServerConfig) http.HandlerFunc {
 			log.Error.Fatal(err)
 		}
 
-		allMetrics, _ := config.PersistService.Repo.FindAll(r.Context())
+		allMetrics, _ := config.PersistService.FindAll(r.Context())
 		mtr := make([]string, len(allMetrics))
 		for i := 0; i < len(allMetrics); i++ {
 			mtr[i] = allMetrics[i].String()
@@ -47,7 +47,7 @@ func rootHandler(config *service.ServerConfig) http.HandlerFunc {
 
 func connectionPingHandler(config *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := config.PersistService.Repo.Ping(); err != nil {
+		if err := config.PersistService.Ping(); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -69,7 +69,7 @@ func metricStore(config *service.ServerConfig) http.HandlerFunc {
 			return
 		}
 
-		err := config.PersistService.SaveMetric(r.Context(), newMetric)
+		err := config.PersistService.Save(r.Context(), newMetric)
 		if err != nil {
 			log.Error.Println("can`t save metric ", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -106,7 +106,7 @@ func metricJSONStore(config *service.ServerConfig) http.HandlerFunc {
 			return
 		}
 
-		persistErr := config.PersistService.SaveMetric(r.Context(), newMetric)
+		persistErr := config.PersistService.Save(r.Context(), newMetric)
 		if persistErr != nil {
 			log.Error.Println("can`t save metric ", persistErr)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -125,7 +125,7 @@ func metricJSONLoad(config *service.ServerConfig) http.HandlerFunc {
 			return
 		}
 
-		resultMetric, findErr := config.PersistService.Repo.FindByID(r.Context(), keyMetric)
+		resultMetric, findErr := config.PersistService.FindByID(r.Context(), keyMetric)
 		if findErr != nil {
 			log.Error.Printf("metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
 			http.Error(w, "Metric not found", http.StatusNotFound)
@@ -161,7 +161,7 @@ func metricLoad(config *service.ServerConfig) http.HandlerFunc {
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
-		tmpMetric, findErr := config.PersistService.Repo.FindByID(r.Context(), keyMetric)
+		tmpMetric, findErr := config.PersistService.FindByID(r.Context(), keyMetric)
 		if findErr != nil {
 			log.Error.Printf("metric not found with id: %v, type: %v", mName, mType)
 			http.Error(w, "Metric not found", http.StatusNotFound)

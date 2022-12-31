@@ -8,30 +8,30 @@ import (
 )
 
 type PersistService struct {
-	Repo storage.Repository
+	storage.Repository
 }
 
-func (p *PersistService) SaveMetric(ctx context.Context, newMetric metric.Metric) error {
+func (p *PersistService) Save(ctx context.Context, newMetric metric.Metric) error {
 	switch newMetric.GetType() {
 	case metric.Gauge:
 		{
-			err := p.Repo.Save(ctx, newMetric)
+			err := p.Repository.Save(ctx, newMetric)
 			if err != nil {
 				return err
 			}
 		}
 	case metric.Counter:
 		{
-			existMetric, fndErr := p.Repo.FindByID(ctx, newMetric)
+			existMetric, fndErr := p.FindByID(ctx, newMetric)
 			if fndErr != nil {
-				err := p.Repo.Save(ctx, newMetric)
+				err := p.Repository.Save(ctx, newMetric)
 				if err != nil {
 					return err
 				}
 				return nil
 			}
 			newValue := existMetric.GetCounterValue() + newMetric.GetCounterValue()
-			err := p.Repo.Save(ctx, metric.NewCounterMetric(existMetric.GetName(), newValue))
+			err := p.Repository.Save(ctx, metric.NewCounterMetric(existMetric.GetName(), newValue))
 			if err != nil {
 				return err
 			}
