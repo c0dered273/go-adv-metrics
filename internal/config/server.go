@@ -3,22 +3,20 @@ package config
 import (
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/spf13/pflag"
 )
 
-type ServerConfig struct {
+type ServerCmd struct {
 	Address       string
 	DatabaseDsn   string
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
 	Key           string
-	Repo          storage.Repository
 }
 
-func GetServerConfig() *ServerConfig {
-	srvFlag := ServerConfig{}
+func GetServerConfig() ServerCmd {
+	srvFlag := ServerCmd{}
 	pflag.StringVarP(&srvFlag.Address, "address", "a", Address, "Server address:port")
 	pflag.StringVarP(&srvFlag.DatabaseDsn, "databaseDsn", "d", "", "Database url")
 	pflag.DurationVarP(&srvFlag.StoreInterval, "store_interval", "i", StoreInterval, "Writing metrics to disk interval")
@@ -27,7 +25,7 @@ func GetServerConfig() *ServerConfig {
 	pflag.BoolVarP(&srvFlag.Restore, "restore", "r", Restore, "Is restore metrics from disk")
 	pflag.Parse()
 
-	return &ServerConfig{
+	return ServerCmd{
 		Address:       lookupEnvOrString("ADDRESS", srvFlag.Address),
 		DatabaseDsn:   lookupEnvOrString("DATABASE_DSN", srvFlag.DatabaseDsn),
 		StoreInterval: lookupEnvOrDuration("STORE_INTERVAL", srvFlag.StoreInterval),

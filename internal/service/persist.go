@@ -7,11 +7,11 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 )
 
-type PersistMetric struct {
+type PersistService struct {
 	Repo storage.Repository
 }
 
-func (p *PersistMetric) SaveMetric(ctx context.Context, newMetric metric.Metric) error {
+func (p *PersistService) SaveMetric(ctx context.Context, newMetric metric.Metric) error {
 	switch newMetric.GetType() {
 	case metric.Gauge:
 		{

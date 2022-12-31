@@ -11,6 +11,7 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
@@ -152,9 +153,11 @@ func TestService(t *testing.T) {
 		},
 	}
 
-	cfg := &config.ServerConfig{
-		Address: "localhost:8080",
-		Repo:    storage.NewMemStorage(),
+	cfg := &service.ServerConfig{
+		ServerCmd: config.ServerCmd{
+			Address: "localhost:8080",
+		},
+		PersistService: service.PersistService{Repo: storage.NewMemStorage()},
 	}
 
 	for _, tt := range tests {
@@ -220,9 +223,11 @@ func Test_metricStore(t *testing.T) {
 		},
 	}
 
-	cfg := &config.ServerConfig{
-		Address: "localhost:8080",
-		Repo:    storage.NewMemStorage(),
+	cfg := &service.ServerConfig{
+		ServerCmd: config.ServerCmd{
+			Address: "localhost:8080",
+		},
+		PersistService: service.PersistService{Repo: storage.NewMemStorage()},
 	}
 
 	for _, tt := range tests {
@@ -314,9 +319,11 @@ func Test_metricJSONLoad(t *testing.T) {
 		},
 	}
 
-	cfg := &config.ServerConfig{
-		Address: "localhost:8080",
-		Repo:    storage.NewMemStorage(),
+	cfg := &service.ServerConfig{
+		ServerCmd: config.ServerCmd{
+			Address: "localhost:8080",
+		},
+		PersistService: service.PersistService{Repo: storage.NewMemStorage()},
 	}
 
 	for _, tt := range tests {

@@ -8,8 +8,15 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 )
 
-func NewServerConfig(ctx context.Context) *config.ServerConfig {
-	srvCfg := config.GetServerConfig()
+type ServerConfig struct {
+	config.ServerCmd
+	PersistService PersistService
+}
+
+func NewServerConfig(ctx context.Context) *ServerConfig {
+	srvCfg := ServerConfig{
+		ServerCmd: config.GetServerConfig(),
+	}
 
 	if hasSchema(srvCfg.Address) {
 		split := strings.Split(srvCfg.Address, "//")
@@ -17,22 +24,28 @@ func NewServerConfig(ctx context.Context) *config.ServerConfig {
 	}
 
 	if srvCfg.DatabaseDsn != "" {
-		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
+		srvCfg.PersistService.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
 	} else {
-		srvCfg.Repo = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
+		srvCfg.PersistService.Repo = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
 	}
 
-	return srvCfg
+	return &srvCfg
 }
 
-func NewAgentConfig() *config.AgentConfig {
-	agentCfg := config.GetAgentConfig()
+type AgentConfig struct {
+	config.AgentCmd
+}
+
+func NewAgentConfig() *AgentConfig {
+	agentCfg := AgentConfig{
+		AgentCmd: config.GetAgentConfig(),
+	}
 
 	if !hasSchema(agentCfg.Address) {
 		agentCfg.Address = "http://" + agentCfg.Address
 	}
 
-	return agentCfg
+	return &agentCfg
 }
 
 func hasSchema(addr string) bool {

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -41,11 +41,11 @@ func (m *metricUpdate) get() []metric.Metric {
 type MetricAgent struct {
 	Ctx    context.Context
 	Wg     *sync.WaitGroup
-	Config *config.AgentConfig
+	Config *service.AgentConfig
 	client *resty.Client
 }
 
-func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.AgentConfig) MetricAgent {
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.AgentConfig) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
