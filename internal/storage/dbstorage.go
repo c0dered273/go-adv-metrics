@@ -27,14 +27,16 @@ func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
 	case metric.Gauge:
 		statement = `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
 						ON CONFLICT (metric_name, metric_type)
-						DO UPDATE SET metric_value = $4, hash = $5`
+						DO UPDATE SET 
+						    metric_value = $4,
+						    hash = $5;`
 	case metric.Counter:
 		statement = `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
 						ON CONFLICT (metric_name, metric_type)
-						DO UPDATE 
-							SET metric_delta = 
-							    (SELECT metric_delta FROM metrics WHERE metric_name = $1 AND metric_type = $2) + $3, 
-						    hash = $5`
+						DO UPDATE SET 
+						    metric_delta = 
+						    	(SELECT metric_delta FROM metrics WHERE metric_name = $1 AND metric_type = $2) + $3,
+						    hash = $5;`
 	}
 	_, err := ds.DB.ExecContext(ctx, statement, m.ID, m.MType.String(), m.Delta, m.Val, m.Hash)
 	if err != nil {
@@ -54,7 +56,7 @@ func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error
 }
 
 func (ds *DBStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (metric.Metric, error) {
-	statement := "SELECT * FROM metrics WHERE metric_name = $1 AND metric_type = $2"
+	statement := "SELECT * FROM metrics WHERE metric_name = $1 AND metric_type = $2;"
 
 	m := metric.Metric{}
 	row := ds.DB.QueryRowContext(ctx, statement, keyMetric.ID, keyMetric.MType.String())
@@ -66,7 +68,7 @@ func (ds *DBStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (met
 }
 
 func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
-	statement := "SELECT * FROM metrics"
+	statement := "SELECT * FROM metrics;"
 
 	result := make([]metric.Metric, 0)
 	rows, err := ds.DB.QueryContext(ctx, statement)
@@ -116,7 +118,7 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 	}()
 
 	if !isRestore {
-		_, dErr := ds.DB.ExecContext(ctx, "DROP TABLE IF EXISTS metrics")
+		_, dErr := ds.DB.ExecContext(ctx, "DROP TABLE IF EXISTS metrics;")
 		if dErr != nil {
 			log.Error.Println("dbStorage: can't drop table 'metrics'")
 			return dErr
@@ -131,7 +133,7 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 					metric_value double precision,
 					hash varchar(64),
     				CONSTRAINT metric_pk PRIMARY KEY(metric_name, metric_type)
-				)`
+				);`
 	_, cErr := ds.DB.ExecContext(ctx, statement)
 	if cErr != nil {
 		log.Error.Println("dbStorage: can't create table 'metrics'")
