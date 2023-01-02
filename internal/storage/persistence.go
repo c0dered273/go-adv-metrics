@@ -1,17 +1,16 @@
-package service
+package storage
 
 import (
 	"context"
 
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
 )
 
-type PersistService struct {
-	storage.Repository
+type PersistenceRepo struct {
+	Repository
 }
 
-func (p *PersistService) Save(ctx context.Context, newMetric metric.Metric) error {
+func (p *PersistenceRepo) Save(ctx context.Context, newMetric metric.Metric) error {
 	switch newMetric.GetType() {
 	case metric.Gauge:
 		{
@@ -38,4 +37,8 @@ func (p *PersistService) Save(ctx context.Context, newMetric metric.Metric) erro
 		}
 	}
 	return nil
+}
+
+func NewPersistenceRepo(r Repository) Repository {
+	return &PersistenceRepo{Repository: r}
 }

@@ -10,7 +10,7 @@ import (
 
 type ServerConfig struct {
 	config.ServerCmd
-	PersistService PersistService
+	Repo storage.Repository
 }
 
 func NewServerConfig(ctx context.Context) *ServerConfig {
@@ -24,9 +24,11 @@ func NewServerConfig(ctx context.Context) *ServerConfig {
 	}
 
 	if srvCfg.DatabaseDsn != "" {
-		srvCfg.PersistService.Repository = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
+		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
 	} else {
-		srvCfg.PersistService.Repository = storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx)
+		srvCfg.Repo = storage.NewPersistenceRepo(
+			storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx),
+		)
 	}
 
 	return &srvCfg

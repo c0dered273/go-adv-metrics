@@ -17,7 +17,7 @@ type FileStorage struct {
 	file        *os.File
 	encoder     *json.Encoder
 	decoder     *json.Decoder
-	memCache    *MemStorage
+	memCache    Repository
 	isSyncStore bool
 }
 

@@ -157,7 +157,7 @@ func TestService(t *testing.T) {
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
-		PersistService: service.PersistService{Repository: storage.NewMemStorage()},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {
@@ -227,7 +227,7 @@ func Test_metricStore(t *testing.T) {
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
-		PersistService: service.PersistService{Repository: storage.NewMemStorage()},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {
@@ -323,7 +323,7 @@ func Test_metricJSONLoad(t *testing.T) {
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
-		PersistService: service.PersistService{Repository: storage.NewMemStorage()},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {
