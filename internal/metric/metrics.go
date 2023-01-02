@@ -53,6 +53,14 @@ type Metrics struct {
 	Metrics []Metric `json:"metrics"`
 }
 
+func (ms *Metrics) SetHash(hashKey string) {
+	if hashKey != "" {
+		for _, m := range ms.Metrics {
+			m.SetHash(hashKey)
+		}
+	}
+}
+
 type Metric struct {
 	ID    string   `json:"id"`
 	MType Type     `json:"type"`

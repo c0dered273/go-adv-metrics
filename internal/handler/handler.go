@@ -115,6 +115,46 @@ func metricJSONStore(config *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
+func metricStoreAll(config *service.ServerConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]metric.Metric, 0)
+		if decErr := json.NewDecoder(r.Body).Decode(&buf); decErr != nil {
+			log.Error.Println("can`t unmarshall request ", decErr)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		newMetrics := metric.Metrics{Metrics: buf}
+
+		for _, m := range newMetrics.Metrics {
+			if !metric.IsValid(m) {
+				log.Error.Printf("invalid metric: %v", newMetrics)
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+
+			ok, checkErr := m.CheckHash(config.Key)
+			if checkErr != nil {
+				log.Error.Println("can`t check metric hash ", checkErr)
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				log.Error.Println("invalid metric hash")
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+		}
+
+		persistErr := config.Repo.SaveAll(r.Context(), newMetrics.Metrics)
+		if persistErr != nil {
+			log.Error.Println("can`t save metric ", persistErr)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 func metricJSONLoad(config *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var keyMetric metric.Metric
@@ -193,6 +233,7 @@ func Service(config *service.ServerConfig) http.Handler {
 	r.Post("/value/", metricJSONLoad(config))
 	r.Get("/value/{type}/{name}", metricLoad(config))
 	r.Post("/update/", metricJSONStore(config))
+	r.Post("/updates/", metricStoreAll(config))
 	r.Post("/update/{type}/{name}/{value}", metricStore(config))
 
 	return r

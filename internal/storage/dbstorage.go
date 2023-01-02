@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/c0dered273/go-adv-metrics/internal/log"
@@ -18,7 +19,7 @@ const (
 type DBStorage struct {
 	DB           *sql.DB
 	ctx          context.Context
-	QueryTimeout time.Duration
+	queryTimeout time.Duration
 }
 
 func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
@@ -46,12 +47,30 @@ func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
 }
 
 func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error {
+	tx, err := ds.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			log.Error.Printf("dbStorage: failed to rollback transaction, got error: %v", err)
+		}
+	}()
+
 	for _, m := range metrics {
 		err := ds.Save(ctx, m)
 		if err != nil {
+			log.Error.Println("dbStorage: failed to save")
 			return err
 		}
 	}
+
+	if err = tx.Commit(); err != nil {
+		log.Error.Println("dbStorage: failed to commit")
+		return err
+	}
+
 	return nil
 }
 
@@ -95,7 +114,7 @@ func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
 }
 
 func (ds *DBStorage) Ping() error {
-	ctx, cancel := context.WithTimeout(ds.ctx, ds.QueryTimeout)
+	ctx, cancel := context.WithTimeout(ds.ctx, ds.queryTimeout)
 	defer cancel()
 	if err := ds.DB.PingContext(ctx); err != nil {
 		return err
@@ -108,7 +127,7 @@ func (ds *DBStorage) Close() error {
 }
 
 func (ds *DBStorage) initDB(isRestore bool) error {
-	ctx, cancel := context.WithTimeout(ds.ctx, ds.QueryTimeout)
+	ctx, cancel := context.WithTimeout(ds.ctx, ds.queryTimeout)
 	defer cancel()
 	go func() {
 		<-ctx.Done()
@@ -146,7 +165,7 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBStorage {
 	connConfig, cErr := pgx.ParseConnectionString(databaseDsn)
 	if cErr != nil {
-		log.Error.Fatal("dbStorage: can`t parse connection config", cErr)
+		log.Error.Fatalln("dbStorage: can`t parse connection config", cErr)
 	}
 	pool, pErr := pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     connConfig,
@@ -161,7 +180,7 @@ func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBSt
 	ds := &DBStorage{
 		DB:           db,
 		ctx:          ctx,
-		QueryTimeout: DefaultTimeout,
+		queryTimeout: DefaultTimeout,
 	}
 
 	err := ds.initDB(isRestore)

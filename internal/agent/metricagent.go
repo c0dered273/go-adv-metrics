@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	updateEndpoint   = "/update/"
+	updateEndpoint   = "/updates/"
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
@@ -78,16 +78,23 @@ func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 	ticker := time.NewTicker(c.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
-		metrics := metricUpdate.get()
-		if len(metrics) != 0 {
-			for _, m := range metrics {
-				m.SetHash(c.Config.Key)
-				err := c.postMetric(m)
-				if err != nil {
-					log.Error.Println("unable to send update request ", err)
-				}
-			}
+		m := metric.Metrics{Metrics: metricUpdate.get()}
+		m.SetHash(c.Config.Key)
+		err := c.postMetric(m.Metrics)
+		if err != nil {
+			log.Error.Println("unable to send update request ", err)
 		}
+
+		//if len(metrics) != 0 {
+		//	for _, m := range metrics {
+		//		m.SetHash(c.Config.Key)
+		//		err := c.postMetric(m)
+		//		if err != nil {
+		//			log.Error.Println("unable to send update request ", err)
+		//		}
+		//	}
+		//}
+
 		select {
 		case <-ticker.C:
 			continue
@@ -98,8 +105,8 @@ func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 	}
 }
 
-func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
-	body, marshErr := json.Marshal(newMetric)
+func (c *MetricAgent) postMetric(metrics []metric.Metric) error {
+	body, marshErr := json.Marshal(metrics)
 	if marshErr != nil {
 		return marshErr
 	}
@@ -113,9 +120,13 @@ func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
 		return err
 	}
 	if response.IsSuccess() {
-		log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+		log.Info.Printf(
+			"Metric update success %v %v %v", response.StatusCode(), response.Request.Method, response.Request.URL,
+		)
 	} else {
-		log.Info.Printf("Unable to update metric, status %d - %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+		log.Info.Printf(
+			"Unable to update metric, status %d - %v %v", response.StatusCode(), response.Request.Method, response.Request.URL,
+		)
 	}
 	return nil
 }
