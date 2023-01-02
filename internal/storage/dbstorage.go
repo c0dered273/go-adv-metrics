@@ -22,10 +22,20 @@ type DBStorage struct {
 }
 
 func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
-	statement := `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
+	var statement string
+	switch m.GetType() {
+	case metric.Gauge:
+		statement = `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
 						ON CONFLICT (metric_name, metric_type)
-							DO UPDATE SET metric_delta = $3, metric_value = $4, hash = $5`
-
+						DO UPDATE SET metric_value = $4, hash = $5`
+	case metric.Counter:
+		statement = `INSERT INTO metrics VALUES ($1, $2, $3, $4, $5)
+						ON CONFLICT (metric_name, metric_type)
+						DO UPDATE 
+							SET metric_delta = 
+							    (SELECT metric_delta FROM metrics WHERE metric_name = $1 AND metric_type = $2) + $3, 
+						    hash = $5`
+	}
 	_, err := ds.DB.ExecContext(ctx, statement, m.ID, m.MType.String(), m.Delta, m.Val, m.Hash)
 	if err != nil {
 		return err
