@@ -17,6 +17,7 @@ const (
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
+	BufferLen        = 10
 )
 
 type metricUpdate struct {
@@ -43,6 +44,7 @@ type MetricAgent struct {
 	Wg     *sync.WaitGroup
 	Config *service.AgentConfig
 	client *resty.Client
+	buffer []metric.Metric
 }
 
 func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.AgentConfig) MetricAgent {
@@ -56,6 +58,7 @@ func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.Age
 		Wg:     wg,
 		Config: config,
 		client: client,
+		buffer: make([]metric.Metric, 0, BufferLen),
 	}
 }
 
@@ -78,27 +81,27 @@ func (c *MetricAgent) send(metricUpdate *metricUpdate) {
 	ticker := time.NewTicker(c.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
-		m := metric.Metrics{Metrics: metricUpdate.get()}
-		m.SetHash(c.Config.Key)
-		err := c.postMetric(m.Metrics)
-		if err != nil {
-			log.Error.Println("unable to send update request ", err)
-		}
+		updated := metricUpdate.get()
+		for _, m := range updated {
+			m.SetHash(c.Config.Key)
+			c.buffer = append(c.buffer, m)
 
-		//if len(metrics) != 0 {
-		//	for _, m := range metrics {
-		//		m.SetHash(c.Config.Key)
-		//		err := c.postMetric(m)
-		//		if err != nil {
-		//			log.Error.Println("unable to send update request ", err)
-		//		}
-		//	}
-		//}
+			if cap(c.buffer) == len(c.buffer) {
+				err := c.postMetric(c.buffer)
+				if err != nil {
+					log.Error.Println("unable to send update request ", err)
+				}
+			}
+		}
 
 		select {
 		case <-ticker.C:
 			continue
 		case <-c.Ctx.Done():
+			err := c.postMetric(c.buffer)
+			if err != nil {
+				log.Error.Println("unable to send update request ", err)
+			}
 			c.Wg.Done()
 			return
 		}
