@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/c0dered273/go-adv-metrics/internal/log"
 )
 
 type gzipWriter struct {
@@ -27,7 +25,6 @@ func GzipResponseEncoder(next http.Handler) http.Handler {
 
 		gz, err := gzip.NewWriterLevel(w, gzip.DefaultCompression)
 		if err != nil {
-			log.Error.Println("can`t create gzip encoder ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -52,7 +49,6 @@ func GzipRequestDecoder(next http.Handler) http.Handler {
 
 		gz, err := gzip.NewReader(r.Body)
 		if err != nil {
-			log.Error.Println("can`t create gzip reader ", err)
 			next.ServeHTTP(w, r)
 			return
 		}

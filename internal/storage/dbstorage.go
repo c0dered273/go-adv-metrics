@@ -6,10 +6,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/stdlib"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -19,6 +19,7 @@ const (
 type DBStorage struct {
 	DB           *sql.DB
 	ctx          context.Context
+	logger       zerolog.Logger
 	queryTimeout time.Duration
 }
 
@@ -54,20 +55,19 @@ func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error
 
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			log.Error.Printf("dbStorage: failed to rollback transaction, got error: %v", err)
+			ds.logger.Error().Err(err).Msg("dbStorage: failed to rollback transaction")
 		}
 	}()
 
 	for _, m := range metrics {
 		err := ds.Save(ctx, m)
 		if err != nil {
-			log.Error.Println("dbStorage: failed to save")
 			return err
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		log.Error.Println("dbStorage: failed to commit")
+		ds.logger.Error().Msg("dbStorage: failed to commit")
 		return err
 	}
 
@@ -132,15 +132,15 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 	go func() {
 		<-ctx.Done()
 		if ctx.Err() == context.DeadlineExceeded {
-			log.Error.Fatalln("dbStorage: DB schema init timeout", ctx.Err())
+			ds.logger.Error().Err(ctx.Err()).Msg("dbStorage: DB schema init timeout")
 		}
 	}()
 
 	if !isRestore {
-		_, dErr := ds.DB.ExecContext(ctx, "DROP TABLE IF EXISTS metrics;")
-		if dErr != nil {
-			log.Error.Println("dbStorage: can't drop table 'metrics'")
-			return dErr
+		_, err := ds.DB.ExecContext(ctx, "DROP TABLE IF EXISTS metrics;")
+		if err != nil {
+			ds.logger.Error().Msg("dbStorage: can't drop table 'metrics'")
+			return err
 		}
 	}
 
@@ -153,26 +153,26 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 					hash varchar(64),
     				CONSTRAINT metric_pk PRIMARY KEY(metric_name, metric_type)
 				);`
-	_, cErr := ds.DB.ExecContext(ctx, statement)
-	if cErr != nil {
-		log.Error.Println("dbStorage: can't create table 'metrics'")
-		return cErr
+	_, err := ds.DB.ExecContext(ctx, statement)
+	if err != nil {
+		ds.logger.Error().Msg("dbStorage: can't create table 'metrics'")
+		return err
 	}
 
 	return nil
 }
 
-func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBStorage {
-	connConfig, cErr := pgx.ParseConnectionString(databaseDsn)
-	if cErr != nil {
-		log.Error.Fatalln("dbStorage: can`t parse connection config", cErr)
+func NewDBStorage(databaseDsn string, isRestore bool, logger zerolog.Logger, ctx context.Context) *DBStorage {
+	connConfig, err := pgx.ParseConnectionString(databaseDsn)
+	if err != nil {
+		logger.Error().Err(err).Msg("dbStorage: can`t parse connection config")
 	}
-	pool, pErr := pgx.NewConnPool(pgx.ConnPoolConfig{
+	pool, err := pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     connConfig,
 		MaxConnections: 10,
 	})
-	if pErr != nil {
-		log.Error.Fatalln("dbStorage: can`t create connection pool", pErr)
+	if err != nil {
+		logger.Error().Err(err).Msg("dbStorage: can`t create connection pool")
 	}
 
 	db := stdlib.OpenDBFromPool(pool)
@@ -180,19 +180,20 @@ func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBSt
 	ds := &DBStorage{
 		DB:           db,
 		ctx:          ctx,
+		logger:       logger,
 		queryTimeout: DefaultTimeout,
 	}
 
-	err := ds.initDB(isRestore)
+	err = ds.initDB(isRestore)
 	if err != nil {
-		log.Error.Fatalln("dbStorage: can't init DB")
+		logger.Error().Err(err).Msg("dbStorage: can't init DB")
 	}
 
 	go func() {
 		<-ds.ctx.Done()
 		err := ds.Close()
 		if err != nil {
-			log.Error.Println("dbStorage: can't close DB", err)
+			logger.Error().Err(err).Msg("dbStorage: can't close DB")
 		}
 	}()
 

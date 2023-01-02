@@ -6,16 +6,19 @@ import (
 
 	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
+	"github.com/rs/zerolog"
 )
 
 type ServerConfig struct {
 	config.ServerCmd
-	Repo storage.Repository
+	Logger zerolog.Logger
+	Repo   storage.Repository
 }
 
-func NewServerConfig(ctx context.Context) *ServerConfig {
+func NewServerConfig(logger zerolog.Logger, ctx context.Context) *ServerConfig {
 	srvCfg := ServerConfig{
 		ServerCmd: config.GetServerConfig(),
+		Logger:    logger,
 	}
 
 	if hasSchema(srvCfg.Address) {
@@ -24,10 +27,10 @@ func NewServerConfig(ctx context.Context) *ServerConfig {
 	}
 
 	if srvCfg.DatabaseDsn != "" {
-		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, ctx)
+		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, srvCfg.Logger, ctx)
 	} else {
 		srvCfg.Repo = storage.NewPersistenceRepo(
-			storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, ctx),
+			storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, logger, ctx),
 		)
 	}
 
@@ -36,11 +39,13 @@ func NewServerConfig(ctx context.Context) *ServerConfig {
 
 type AgentConfig struct {
 	config.AgentCmd
+	Logger zerolog.Logger
 }
 
-func NewAgentConfig() *AgentConfig {
+func NewAgentConfig(logger zerolog.Logger) *AgentConfig {
 	agentCfg := AgentConfig{
 		AgentCmd: config.GetAgentConfig(),
+		Logger:   logger,
 	}
 
 	if !hasSchema(agentCfg.Address) {

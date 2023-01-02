@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/rs/zerolog"
 )
 
 type FileStorage struct {
 	ctx         context.Context
+	logger      zerolog.Logger
 	mx          *sync.Mutex
 	file        *os.File
 	encoder     *json.Encoder
@@ -120,7 +121,7 @@ func (f *FileStorage) asyncStore(storeInterval time.Duration) {
 		defer ticker.Stop()
 		for {
 			if err := f.WriteMetrics(); err != nil {
-				log.Error.Println("can`t write metrics at async store ", err)
+				f.logger.Error().Err(err).Msg("fileStore: failed to write metrics at async store")
 				return
 			}
 			select {
@@ -133,10 +134,13 @@ func (f *FileStorage) asyncStore(storeInterval time.Duration) {
 	}()
 }
 
-func NewFileStorage(fileName string, storeInterval time.Duration, isRestore bool, ctx context.Context) *FileStorage {
-	file, oErr := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_SYNC, 0777)
-	if oErr != nil {
-		log.Error.Panic("can`t open file: ", fileName)
+func NewFileStorage(
+	fileName string, storeInterval time.Duration, isRestore bool, logger zerolog.Logger, ctx context.Context,
+) *FileStorage {
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_SYNC, 0777)
+	if err != nil {
+		logger.Error().Err(err).Msgf("fileStore: failed to open file: %v", fileName)
+		panic(err)
 	}
 
 	encoder := json.NewEncoder(file)
@@ -147,6 +151,7 @@ func NewFileStorage(fileName string, storeInterval time.Duration, isRestore bool
 
 	fs := &FileStorage{
 		ctx:         ctx,
+		logger:      logger,
 		mx:          new(sync.Mutex),
 		file:        file,
 		encoder:     encoder,
@@ -156,9 +161,9 @@ func NewFileStorage(fileName string, storeInterval time.Duration, isRestore bool
 	}
 
 	if isRestore {
-		rdErr := fs.ReadMetrics()
-		if rdErr != nil {
-			log.Error.Fatalln("can't read metrics from disk ", rdErr)
+		err := fs.ReadMetrics()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("fileStorage: failed to read metrics from disk")
 		}
 	}
 
@@ -170,7 +175,7 @@ func NewFileStorage(fileName string, storeInterval time.Duration, isRestore bool
 		<-fs.ctx.Done()
 		err := fs.Close()
 		if err != nil {
-			log.Error.Println("can`t close file storage", err)
+			logger.Error().Err(err).Msg("fileStorage: can`t close file storage")
 		}
 	}()
 

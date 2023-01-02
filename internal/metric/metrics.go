@@ -61,6 +61,28 @@ func (ms *Metrics) SetHash(hashKey string) {
 	}
 }
 
+func (ms *Metrics) CheckHash(hashKey string) (bool, error) {
+	for _, m := range ms.Metrics {
+		ok, err := m.CheckHash(hashKey)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (ms *Metrics) IsValid() (bool, Metric) {
+	for _, m := range ms.Metrics {
+		if !IsValid(m) {
+			return false, m
+		}
+	}
+	return true, Metric{}
+}
+
 type Metric struct {
 	ID    string   `json:"id"`
 	MType Type     `json:"type"`
