@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"testing"
 
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
@@ -16,12 +17,12 @@ func TestNewMemStorage(t *testing.T) {
 	storage := NewMemStorage()
 
 	for _, m := range metrics {
-		err := storage.Save(m)
+		err := storage.Save(context.Background(), m)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	result, _ := storage.FindAll()
+	result, _ := storage.FindAll(context.Background())
 	assert.ElementsMatch(t, metrics, result)
 }

@@ -8,8 +8,9 @@ import (
 	"syscall"
 
 	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
-	"github.com/c0dered273/go-adv-metrics/internal/log"
+	"github.com/c0dered273/go-adv-metrics/internal/log/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -17,7 +18,8 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cfg := service.NewAgentConfig()
+	logger := agent.NewAgentLogger()
+	cfg := service.NewAgentConfig(logger)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -28,5 +30,5 @@ func main() {
 	<-shutdown
 	cancel()
 	wg.Wait()
-	log.Info.Println("Metrics agent shutdown")
+	log.Info().Msg("Metrics agent shutdown")
 }

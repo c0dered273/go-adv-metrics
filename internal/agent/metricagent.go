@@ -6,17 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/config"
-	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/go-resty/resty/v2"
 )
 
 const (
-	updateEndpoint   = "/update/"
+	updateEndpoint   = "/updates/"
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
+	BufferLen        = 10
 )
 
 type metricUpdate struct {
@@ -41,11 +41,12 @@ func (m *metricUpdate) get() []metric.Metric {
 type MetricAgent struct {
 	Ctx    context.Context
 	Wg     *sync.WaitGroup
-	Config *config.AgentConfig
+	Config *service.AgentConfig
 	client *resty.Client
+	buffer []metric.Metric
 }
 
-func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.AgentConfig) MetricAgent {
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.AgentConfig) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
@@ -56,77 +57,100 @@ func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.Agen
 		Wg:     wg,
 		Config: config,
 		client: client,
+		buffer: make([]metric.Metric, 0, BufferLen),
 	}
 }
 
-func (c *MetricAgent) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(c.Config.PollInterval)
+func (ma *MetricAgent) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(ma.Config.PollInterval)
 	defer ticker.Stop()
 	for {
 		metricUpdate.set(mUpdate())
 		select {
 		case <-ticker.C:
 			continue
-		case <-c.Ctx.Done():
-			c.Wg.Done()
+		case <-ma.Ctx.Done():
+			ma.Wg.Done()
 			return
 		}
 	}
 }
 
-func (c *MetricAgent) send(metricUpdate *metricUpdate) {
-	ticker := time.NewTicker(c.Config.ReportInterval)
+func (ma *MetricAgent) send(metricUpdate *metricUpdate) {
+	ticker := time.NewTicker(ma.Config.ReportInterval)
 	defer ticker.Stop()
 	for {
-		metrics := metricUpdate.get()
-		if len(metrics) != 0 {
-			for _, m := range metrics {
-				err := c.postMetric(m)
+		updated := metricUpdate.get()
+		for _, m := range updated {
+			m.SetHash(ma.Config.Key)
+			ma.buffer = append(ma.buffer, m)
+
+			if cap(ma.buffer) == len(ma.buffer) {
+				err := ma.postMetric(ma.buffer)
 				if err != nil {
-					log.Error.Println("Unable to send update request ", err)
+					ma.Config.Logger.Error().Err(err).Msg("agent: failed to send update request")
 				}
 			}
 		}
+
 		select {
 		case <-ticker.C:
 			continue
-		case <-c.Ctx.Done():
-			c.Wg.Done()
+		case <-ma.Ctx.Done():
+			err := ma.postMetric(ma.buffer)
+			if err != nil {
+				ma.Config.Logger.Error().Err(err).Msg("agent: failed to send update request")
+			}
+			ma.Wg.Done()
 			return
 		}
 	}
 }
 
-func (c *MetricAgent) postMetric(newMetric metric.Metric) error {
-	body, marshErr := json.Marshal(newMetric)
+func (ma *MetricAgent) postMetric(metrics []metric.Metric) error {
+	body, marshErr := json.Marshal(metrics)
 	if marshErr != nil {
 		return marshErr
 	}
 
-	response, err := c.client.R().
-		SetContext(c.Ctx).
+	response, err := ma.client.R().
+		SetContext(ma.Ctx).
 		SetHeader("Content-Type", "application/json").
 		SetBody(body).
-		Post(c.Config.Address + updateEndpoint)
+		Post(ma.Config.Address + updateEndpoint)
 	if err != nil {
 		return err
 	}
-	log.Info.Printf("Metric update success %v %v %v: %v", response.StatusCode(), response.Request.Method, response.Request.URL, newMetric.String())
+	if response.IsSuccess() {
+		ma.Config.Logger.
+			Info().
+			Int("status_code", response.StatusCode()).
+			Str("method", response.Request.Method).
+			Str("url", response.Request.URL).
+			Msg("send update success")
+	} else {
+		ma.Config.Logger.
+			Error().
+			Int("status_code", response.StatusCode()).
+			Str("method", response.Request.Method).
+			Str("url", response.Request.URL).
+			Msg("agent: metric update failed")
+	}
 	return nil
 }
 
-func (c *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
+func (ma *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
 	var metricUpdate metricUpdate
 
-	go c.update(mUpdate, &metricUpdate)
+	go ma.update(mUpdate, &metricUpdate)
 	time.AfterFunc(10*time.Millisecond, func() {
-		c.send(&metricUpdate)
+		ma.send(&metricUpdate)
 	})
 }
 
-func (c *MetricAgent) SendAllMetricsContinuously() {
+func (ma *MetricAgent) SendAllMetricsContinuously() {
 	allMetrics := metric.GetUpdatable(
 		metric.NewMemStats,
 	)
-	c.SendUpdateContinuously(allMetrics)
+	ma.SendUpdateContinuously(allMetrics)
 }

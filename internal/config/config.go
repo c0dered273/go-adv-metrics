@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/log"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -29,7 +29,7 @@ func lookupEnvOrDuration(key string, defaultVal time.Duration) time.Duration {
 	if val, ok := os.LookupEnv(key); ok {
 		durationVal, err := time.ParseDuration(val)
 		if err != nil {
-			log.Error.Fatal("can`t parse duration: ", val)
+			log.Fatal().Msgf("config: failed to parse duration: %v", val)
 		}
 		return durationVal
 	}
@@ -40,7 +40,7 @@ func lookupEnvOrBool(key string, defaultVal bool) bool {
 	if val, ok := os.LookupEnv(key); ok {
 		parseBool, err := strconv.ParseBool(val)
 		if err != nil {
-			log.Error.Fatal("can`t parse bool: ", val)
+			log.Fatal().Msgf("config: failed to parse bool: %v", val)
 		}
 		return parseBool
 	}

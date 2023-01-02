@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -38,31 +39,35 @@ func (m *MemStorage) iterateValues() <-chan metric.Metric {
 	return c
 }
 
-func (m *MemStorage) Save(newMetric metric.Metric) error {
+func (m *MemStorage) Save(ctx context.Context, newMetric metric.Metric) error {
 	m.put(getID(newMetric), newMetric)
 	return nil
 }
 
-func (m *MemStorage) SaveAll(metrics []metric.Metric) error {
+func (m *MemStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error {
 	for _, mtr := range metrics {
 		m.put(getID(mtr), mtr)
 	}
 	return nil
 }
 
-func (m *MemStorage) FindByID(keyMetric metric.Metric) (metric metric.Metric, err error) {
+func (m *MemStorage) FindByID(ctx context.Context, keyMetric metric.Metric) (metric metric.Metric, err error) {
 	if result, ok := m.get(getID(keyMetric)); ok {
 		return result, nil
 	}
 	return metric, fmt.Errorf("storage: not found: %v %v", keyMetric.GetName(), keyMetric.GetType())
 }
 
-func (m *MemStorage) FindAll() (metrics []metric.Metric, err error) {
+func (m *MemStorage) FindAll(ctx context.Context) (metrics []metric.Metric, err error) {
 	var result []metric.Metric
 	for v := range m.iterateValues() {
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+func (m *MemStorage) Ping() error {
+	return nil
 }
 
 func (m *MemStorage) Close() error {
