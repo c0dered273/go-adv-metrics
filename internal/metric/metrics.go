@@ -55,8 +55,8 @@ type Metrics struct {
 
 func (ms *Metrics) SetHash(hashKey string) {
 	if hashKey != "" {
-		for _, m := range ms.Metrics {
-			m.SetHash(hashKey)
+		for i, _ := range ms.Metrics {
+			ms.Metrics[i].SetHash(hashKey)
 		}
 	}
 }
