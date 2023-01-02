@@ -14,12 +14,14 @@ import (
 
 const (
 	DefaultTimeout = 15 * time.Second
+	BufferLen      = 20
 )
 
 type DBStorage struct {
 	DB           *sql.DB
 	ctx          context.Context
 	queryTimeout time.Duration
+	buffer       []metric.Metric
 }
 
 func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
@@ -47,6 +49,20 @@ func (ds *DBStorage) Save(ctx context.Context, m metric.Metric) error {
 }
 
 func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error {
+	for _, m := range metrics {
+		ds.buffer = append(ds.buffer, m)
+		if cap(ds.buffer) == len(ds.buffer) {
+			err := ds.Flush()
+			if err != nil {
+				log.Error.Println("dbStorage: failed to flush buffer")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (ds *DBStorage) Flush() error {
 	tx, err := ds.DB.Begin()
 	if err != nil {
 		return err
@@ -58,8 +74,8 @@ func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error
 		}
 	}()
 
-	for _, m := range metrics {
-		err := ds.Save(ctx, m)
+	for _, m := range ds.buffer {
+		err := ds.Save(ds.ctx, m)
 		if err != nil {
 			log.Error.Println("dbStorage: failed to save")
 			return err
@@ -123,6 +139,10 @@ func (ds *DBStorage) Ping() error {
 }
 
 func (ds *DBStorage) Close() error {
+	err := ds.Flush()
+	if err != nil {
+		return err
+	}
 	return ds.DB.Close()
 }
 
@@ -181,6 +201,7 @@ func NewDBStorage(databaseDsn string, isRestore bool, ctx context.Context) *DBSt
 		DB:           db,
 		ctx:          ctx,
 		queryTimeout: DefaultTimeout,
+		buffer:       make([]metric.Metric, BufferLen),
 	}
 
 	err := ds.initDB(isRestore)
