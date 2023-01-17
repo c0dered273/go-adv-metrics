@@ -151,6 +151,7 @@ func (ma *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
 func (ma *MetricAgent) SendAllMetricsContinuously() {
 	allMetrics := metric.GetUpdatable(
 		metric.NewMemStats,
+		metric.NewPsUtilStats,
 	)
 	ma.SendUpdateContinuously(allMetrics)
 }
