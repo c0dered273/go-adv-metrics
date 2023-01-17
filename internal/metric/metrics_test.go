@@ -63,7 +63,7 @@ func TestNewMetric(t *testing.T) {
 			wantM: Metric{
 				ID:    "GaugeOne",
 				MType: Gauge,
-				Value: func(v float64) *float64 { return &v }(31337),
+				Val:   func(v float64) *float64 { return &v }(31337),
 			},
 		},
 		{
@@ -80,7 +80,7 @@ func TestNewMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotM, _ := NewMetric(tt.mName, tt.mType, tt.mValue)
+			gotM, _ := NewMetric(tt.mName, tt.mType, tt.mValue, "")
 			assert.Equal(t, true, tt.wantM.Equal(&gotM))
 		})
 	}
@@ -120,7 +120,7 @@ func TestNewMetricErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, appError := NewMetric(tt.mName, tt.mType, tt.mValue)
+			_, appError := NewMetric(tt.mName, tt.mType, tt.mValue, "")
 			if !tt.wantErr(t, appError.Error) {
 				panic(appError.Error)
 			}

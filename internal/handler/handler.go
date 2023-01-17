@@ -6,12 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/c0dered273/go-adv-metrics/internal/config"
-	"github.com/c0dered273/go-adv-metrics/internal/log"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
-	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -21,14 +18,14 @@ type IndexData struct {
 	Metrics []string
 }
 
-func rootHandler(repository storage.Repository) http.HandlerFunc {
+func rootHandler(c *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		indexTemplate, err := template.ParseFiles("templates/index.html")
 		if err != nil {
-			log.Error.Fatal(err)
+			c.Logger.Fatal().Err(err).Msg("handler: failed parse template file")
 		}
 
-		allMetrics, _ := repository.FindAll()
+		allMetrics, _ := c.Repo.FindAll(r.Context())
 		mtr := make([]string, len(allMetrics))
 		for i := 0; i < len(allMetrics); i++ {
 			mtr[i] = allMetrics[i].String()
@@ -40,125 +37,197 @@ func rootHandler(repository storage.Repository) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/html")
 		err = indexTemplate.Execute(w, indexData)
 		if err != nil {
-			log.Error.Println("Can`t execute templates", err)
+			c.Logger.Error().Err(err).Msg("handler: can`t execute templates")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func metricStore(persist service.PersistMetric) http.HandlerFunc {
+func connectionPingHandler(c *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		newMetric, appError := metric.NewMetric(chi.URLParam(r, "name"), chi.URLParam(r, "type"), chi.URLParam(r, "value"))
+		if err := c.Repo.Ping(); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func metricStore(c *service.ServerConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		newMetric, appError := metric.NewMetric(
+			chi.URLParam(r, "name"), chi.URLParam(r, "type"), chi.URLParam(r, "value"), "")
 		if appError.Error != nil && appError.TypeError {
-			log.Error.Printf(appError.Error.Error())
+			c.Logger.Error().Err(appError.Error).Msg("handler: unknown metric type")
 			http.Error(w, "Unknown metric type", http.StatusNotImplemented)
 			return
 		}
 		if appError.Error != nil && appError.ValueError {
-			log.Error.Printf(appError.Error.Error())
+			c.Logger.Error().Err(appError.Error).Msg("handler: wrong metric value")
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		err := persist.SaveMetric(newMetric)
+		err := c.Repo.Save(r.Context(), newMetric)
 		if err != nil {
-			log.Error.Println("Can`t save metric ", err)
+			c.Logger.Error().Err(err).Msg("handler: failed to save metric")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func metricJSONStore(persist service.PersistMetric) http.HandlerFunc {
+func metricJSONStore(c *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newMetric metric.Metric
 
-		if decErr := json.NewDecoder(r.Body).Decode(&newMetric); decErr != nil {
-			log.Error.Println("Can`t unmarshall request ", decErr)
+		if err := json.NewDecoder(r.Body).Decode(&newMetric); err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to unmarshall request")
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
 		if !metric.IsValid(newMetric) {
-			log.Error.Printf("Invalid metric: %v", newMetric)
+			c.Logger.Error().Msgf("handler: invalid metric: %v", newMetric)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		persistErr := persist.SaveMetric(newMetric)
-		if persistErr != nil {
-			log.Error.Println("Can`t save metric ", persistErr)
+		ok, err := newMetric.CheckHash(c.Key)
+		if err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to check metric hash")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if !ok {
+			c.Logger.Error().Msg("handler: invalid metric hash")
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		err = c.Repo.Save(r.Context(), newMetric)
+		if err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to save metric")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func metricJSONLoad(repository storage.Repository) http.HandlerFunc {
+func metricStoreAll(c *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var keyMetric metric.Metric
-
-		if decErr := json.NewDecoder(r.Body).Decode(&keyMetric); decErr != nil {
-			log.Error.Println("Can`t unmarshall request ", decErr)
+		buf := make([]metric.Metric, 0)
+		if err := json.NewDecoder(r.Body).Decode(&buf); err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to unmarshall request")
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		resultMetric, findErr := repository.FindByID(keyMetric)
-		if findErr != nil {
-			log.Error.Printf("Metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
+		newMetrics := metric.Metrics{Metrics: buf}
+
+		if ok, m := newMetrics.IsValid(); !ok {
+			c.Logger.Error().Msgf("handler: invalid metric: %v", m)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		ok, err := newMetrics.CheckHash(c.Key)
+		if err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to check metric hash")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if !ok {
+			c.Logger.Error().Msg("handler: invalid metric hash")
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		err = c.Repo.SaveAll(r.Context(), newMetrics.Metrics)
+		if err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to save metric")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func metricJSONLoad(c *service.ServerConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var keyMetric metric.Metric
+
+		if err := json.NewDecoder(r.Body).Decode(&keyMetric); err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to unmarshall request")
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		resultMetric, err := c.Repo.FindByID(r.Context(), keyMetric)
+		if err != nil {
+			c.Logger.
+				Error().
+				Msgf("handler: metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 
-		resultBody, marshErr := json.Marshal(resultMetric)
-		if marshErr != nil {
-			log.Error.Printf("Can`t marshal struct: %v", resultMetric)
+		resultMetric.SetHash(c.Key)
+
+		resultBody, err := json.Marshal(resultMetric)
+		if err != nil {
+			c.Logger.
+				Error().
+				Err(err).
+				Str("metric", resultMetric.String()).
+				Msg("handler: failed to marshall metric")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_, err := w.Write(resultBody)
+		_, err = w.Write(resultBody)
 		if err != nil {
-			log.Error.Print(err)
+			c.Logger.Error().Err(err).Msg("handler: failed to write response body")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func metricLoad(repository storage.Repository) http.HandlerFunc {
+func metricLoad(c *service.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "name")
 		mType := chi.URLParam(r, "type")
-		keyMetric, appErr := metric.NewMetric(mName, mType, "0")
-		if appErr.Error != nil {
-			log.Error.Println(appErr.Error)
+		keyMetric, createErr := metric.NewMetric(mName, mType, "0", "")
+		if createErr.Error != nil {
+			c.Logger.
+				Error().
+				Err(createErr.Error).
+				Msg("handler: failed to create metric")
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
-		tmpMetric, findErr := repository.FindByID(keyMetric)
-		if findErr != nil {
-			log.Error.Printf("Metric not found with id: %v, type: %v", mName, mType)
+		tmpMetric, err := c.Repo.FindByID(r.Context(), keyMetric)
+		if err != nil {
+			c.Logger.
+				Error().
+				Msgf("handler: metric not found with id: %v, type: %v", keyMetric.ID, keyMetric.MType.String())
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
-		_, wrErr := w.Write([]byte(tmpMetric.GetStringValue()))
-		if wrErr != nil {
-			log.Error.Println(wrErr.Error())
+		_, err = w.Write([]byte(tmpMetric.GetStringValue()))
+		if err != nil {
+			c.Logger.Error().Err(err).Msg("handler: failed to write response body")
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func Service(config *config.ServerConfig) http.Handler {
+func Service(config *service.ServerConfig) http.Handler {
 	r := chi.NewRouter()
-	//r.Use(middleware.Compress(1))
 	r.Use(middleware2.GzipResponseEncoder)
 	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.RequestID)
@@ -167,11 +236,13 @@ func Service(config *config.ServerConfig) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.Get("/", rootHandler(config.Repo))
-	r.Post("/value/", metricJSONLoad(config.Repo))
-	r.Get("/value/{type}/{name}", metricLoad(config.Repo))
-	r.Post("/update/", metricJSONStore(service.PersistMetric{Repo: config.Repo}))
-	r.Post("/update/{type}/{name}/{value}", metricStore(service.PersistMetric{Repo: config.Repo}))
+	r.Get("/", rootHandler(config))
+	r.Get("/ping", connectionPingHandler(config))
+	r.Post("/value/", metricJSONLoad(config))
+	r.Get("/value/{type}/{name}", metricLoad(config))
+	r.Post("/update/", metricJSONStore(config))
+	r.Post("/updates/", metricStoreAll(config))
+	r.Post("/update/{type}/{name}/{value}", metricStore(config))
 
 	return r
 }

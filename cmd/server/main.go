@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
-	"github.com/c0dered273/go-adv-metrics/internal/log"
+	"github.com/c0dered273/go-adv-metrics/internal/log/server"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -18,8 +19,9 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	cfg := service.NewServerConfig(serverCtx)
-	server := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
+	logger := server.NewServerLogger()
+	cfg := service.NewServerConfig(logger, serverCtx)
+	httpServer := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
 
 	go func() {
 		<-shutdown
@@ -28,25 +30,25 @@ func main() {
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Error.Fatal("graceful shutdown timed out.. forcing exit.")
+				log.Fatal().Msg("server: graceful shutdown timed out.. forcing exit.")
 			}
 		}()
 
-		err := server.Shutdown(shutdownCtx)
+		err := httpServer.Shutdown(shutdownCtx)
 		if err != nil {
-			log.Error.Fatal(err)
+			log.Fatal().Err(err)
 		}
 
 		serverStopCtx()
 		shutdownCancelCtx()
 	}()
 
-	log.Info.Printf("Metrics server started at %v", server.Addr)
-	err := server.ListenAndServe()
+	logger.Info().Msgf("Metrics server started at %v", httpServer.Addr)
+	err := httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		log.Error.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
 	<-serverCtx.Done()
-	log.Info.Println("Metrics server shutdown")
+	logger.Info().Msg("Metrics server shutdown")
 }

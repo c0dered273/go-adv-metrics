@@ -1,6 +1,10 @@
 package metric
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -17,6 +21,19 @@ const (
 var types = [...]string{
 	"gauge",
 	"counter",
+}
+
+func (t Type) Value() (driver.Value, error) {
+	return t.String(), nil
+}
+
+func (t *Type) Scan(src any) error {
+	sType, err := NewType(src.(string))
+	if err != nil {
+		return err
+	}
+	*t = sType
+	return nil
 }
 
 func (t Type) String() string {
@@ -36,11 +53,42 @@ type Metrics struct {
 	Metrics []Metric `json:"metrics"`
 }
 
+func (ms *Metrics) SetHash(hashKey string) {
+	if hashKey != "" {
+		for i := range ms.Metrics {
+			ms.Metrics[i].SetHash(hashKey)
+		}
+	}
+}
+
+func (ms *Metrics) CheckHash(hashKey string) (bool, error) {
+	for _, m := range ms.Metrics {
+		ok, err := m.CheckHash(hashKey)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (ms *Metrics) IsValid() (bool, Metric) {
+	for _, m := range ms.Metrics {
+		if !IsValid(m) {
+			return false, m
+		}
+	}
+	return true, Metric{}
+}
+
 type Metric struct {
 	ID    string   `json:"id"`
 	MType Type     `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
+	Val   *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
 func (m *Metric) GetName() string {
@@ -56,12 +104,12 @@ func (m *Metric) GetType() Type {
 }
 
 func (m *Metric) GetGaugeValue() float64 {
-	return *m.Value
+	return *m.Val
 }
 
 func (m *Metric) setGaugeValue(v float64) {
 	m.MType = Gauge
-	m.Value = &v
+	m.Val = &v
 }
 
 func (m *Metric) GetCounterValue() int64 {
@@ -76,7 +124,7 @@ func (m *Metric) setCounterValue(v int64) {
 func (m *Metric) GetStringValue() string {
 	switch m.MType {
 	case Gauge:
-		return strconv.FormatFloat(*m.Value, 'f', -1, 64)
+		return strconv.FormatFloat(*m.Val, 'f', -1, 64)
 	case Counter:
 		return strconv.FormatInt(*m.Delta, 10)
 	default:
@@ -91,8 +139,8 @@ func (m *Metric) String() string {
 func (m *Metric) Equal(other *Metric) bool {
 	switch m.MType {
 	case Gauge:
-		fmt.Printf("*** %v ***", math.Abs(*m.Value-*other.Value))
-		return math.Abs(*m.Value-*other.Value) <= math.SmallestNonzeroFloat64
+		fmt.Printf("*** %v ***", math.Abs(*m.Val-*other.Val))
+		return math.Abs(*m.Val-*other.Val) <= math.SmallestNonzeroFloat64
 	case Counter:
 		return *m.Delta == *other.Delta
 	default:
@@ -144,6 +192,40 @@ func (m *Metric) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+func (m *Metric) getHashSrc() []byte {
+	switch m.MType {
+	case Gauge:
+		return []byte(fmt.Sprintf("%s:gauge:%f", m.ID, *m.Val))
+	case Counter:
+		return []byte(fmt.Sprintf("%s:counter:%d", m.ID, *m.Delta))
+	}
+	return []byte{}
+}
+
+func (m *Metric) generateHash(hashKey string) []byte {
+	h := hmac.New(sha256.New, []byte(hashKey))
+	h.Write(m.getHashSrc())
+	return h.Sum(nil)
+}
+
+func (m *Metric) SetHash(hashKey string) {
+	if hashKey != "" {
+		m.Hash = hex.EncodeToString(m.generateHash(hashKey))
+	}
+}
+
+func (m *Metric) CheckHash(hashKey string) (bool, error) {
+	if hashKey != "" {
+		hashActual, hexErr := hex.DecodeString(m.Hash)
+		if hexErr != nil {
+			return false, hexErr
+		}
+		hashExpected := m.generateHash(hashKey)
+		return hmac.Equal(hashActual, hashExpected), nil
+	}
+	return true, nil
+}
+
 func NewGaugeMetric(ID string, value float64) Metric {
 	var m Metric
 	m.setName(ID)
@@ -161,7 +243,7 @@ func NewCounterMetric(ID string, value int64) Metric {
 func IsValid(m Metric) bool {
 	switch m.MType {
 	case Gauge:
-		return m.Value != nil
+		return m.Val != nil
 	case Counter:
 		return m.Delta != nil
 	default:
@@ -175,7 +257,7 @@ type NewMetricError struct {
 	ValueError bool
 }
 
-func NewMetric(ID string, typeName string, value string) (m Metric, err NewMetricError) {
+func NewMetric(ID string, typeName string, value string, hashKey string) (m Metric, err NewMetricError) {
 	t, typErr := NewType(typeName)
 	if typErr != nil {
 		return m, NewMetricError{
@@ -208,6 +290,9 @@ func NewMetric(ID string, typeName string, value string) (m Metric, err NewMetri
 			m = NewCounterMetric(ID, v)
 		}
 	}
+
+	m.SetHash(hashKey)
+
 	return m, NewMetricError{}
 }
 
