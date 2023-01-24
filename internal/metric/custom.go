@@ -9,22 +9,22 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-const cacheTimeCpu = 1 * time.Second
+const cacheTimeCPU = 1 * time.Second
 
 var (
 	virtMem       *mem.VirtualMemoryStat
 	cpuStats      []float64
-	lastUpdateCpu = ConcurrentTime{
+	lastUpdateCPU = ConcurrentTime{
 		time: time.Now(),
 		mu:   new(sync.RWMutex),
 	}
 )
 
 func updatePSStats() {
-	if time.Since(lastUpdateCpu.get()) > cacheTimeCpu {
+	if time.Since(lastUpdateCPU.get()) > cacheTimeCPU {
 		cpuStats, _ = cpu.Percent(0, true)
 		virtMem, _ = mem.VirtualMemory()
-		lastUpdateCpu.set(time.Now())
+		lastUpdateCPU.set(time.Now())
 	}
 }
 func NewPsUtilStats() []UpdatableMetric {
