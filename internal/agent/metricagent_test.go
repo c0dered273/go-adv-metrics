@@ -24,12 +24,12 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		metric metric.Metric
+		metric metric.UpdatableMetric
 		want   want
 	}{
 		{
 			name:   "successfully return gauge metric",
-			metric: metric.NewGaugeMetric("FirstGauge", 31337.1),
+			metric: metric.NewUpdatableGauge("FirstGauge", func() float64 { return 31337.1 }),
 			want: want{
 				url: "/updates/",
 				body: []byte(`[{
@@ -41,7 +41,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 		},
 		{
 			name:   "successfully return counter metric",
-			metric: metric.NewCounterMetric("FirstCounter", 12345),
+			metric: metric.NewUpdatableCounter("FirstCounter", func() int64 { return 12345 }),
 			want: want{
 				url: "/updates/",
 				body: []byte(`[{
@@ -80,9 +80,9 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 				},
 			}
 
-			upd := metric.GetUpdatable(func() []metric.Metric { return []metric.Metric{tt.metric} })
+			upd := metric.ConcatSources([]metric.UpdatableMetric{tt.metric})
 			metricClient := NewMetricAgent(ctx, &wg, cfg)
-			metricClient.SendUpdateContinuously(upd)
+			metricClient.SendAllMetricsContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)
 			cancel()

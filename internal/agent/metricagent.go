@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -20,18 +19,18 @@ const (
 )
 
 type metricUpdate struct {
-	mu    sync.RWMutex
-	value []metric.Metric
+	mu    *sync.RWMutex
+	value []metric.UpdatableMetric
 }
 
-func (m *metricUpdate) set(newValue []metric.Metric) {
+func (m *metricUpdate) set(newValue []metric.UpdatableMetric) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.value = newValue
 }
 
-func (m *metricUpdate) get() []metric.Metric {
+func (m *metricUpdate) get() []metric.UpdatableMetric {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -43,7 +42,7 @@ type MetricAgent struct {
 	Wg     *sync.WaitGroup
 	Config *service.AgentConfig
 	client *resty.Client
-	buffer []metric.Metric
+	buffer []metric.UpdatableMetric
 }
 
 func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.AgentConfig) MetricAgent {
@@ -57,15 +56,20 @@ func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.Age
 		Wg:     wg,
 		Config: config,
 		client: client,
-		buffer: make([]metric.Metric, 0, BufferLen),
+		buffer: make([]metric.UpdatableMetric, 0, BufferLen),
 	}
 }
 
-func (ma *MetricAgent) update(mUpdate metric.Updatable, metricUpdate *metricUpdate) {
+func (ma *MetricAgent) update(allMetrics []metric.UpdatableMetric, metricUpdate *metricUpdate) {
 	ticker := time.NewTicker(ma.Config.PollInterval)
 	defer ticker.Stop()
 	for {
-		metricUpdate.set(mUpdate())
+		for i := range allMetrics {
+			allMetrics[i].Update()
+		}
+
+		metricUpdate.set(allMetrics)
+
 		select {
 		case <-ticker.C:
 			continue
@@ -81,15 +85,16 @@ func (ma *MetricAgent) send(metricUpdate *metricUpdate) {
 	defer ticker.Stop()
 	for {
 		updated := metricUpdate.get()
-		for _, m := range updated {
-			m.SetHash(ma.Config.Key)
-			ma.buffer = append(ma.buffer, m)
+		for i := range updated {
+			updated[i].SetHash(ma.Config.Key)
+			ma.buffer = append(ma.buffer, updated[i])
 
 			if cap(ma.buffer) == len(ma.buffer) {
 				err := ma.postMetric(ma.buffer)
 				if err != nil {
 					ma.Config.Logger.Error().Err(err).Msg("agent: failed to send update request")
 				}
+				ma.buffer = ma.buffer[:0]
 			}
 		}
 
@@ -107,16 +112,11 @@ func (ma *MetricAgent) send(metricUpdate *metricUpdate) {
 	}
 }
 
-func (ma *MetricAgent) postMetric(metrics []metric.Metric) error {
-	body, marshErr := json.Marshal(metrics)
-	if marshErr != nil {
-		return marshErr
-	}
-
+func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	response, err := ma.client.R().
-		SetContext(ma.Ctx).
+		EnableTrace().
 		SetHeader("Content-Type", "application/json").
-		SetBody(body).
+		SetBody(metrics).
 		Post(ma.Config.Address + updateEndpoint)
 	if err != nil {
 		return err
@@ -139,19 +139,15 @@ func (ma *MetricAgent) postMetric(metrics []metric.Metric) error {
 	return nil
 }
 
-func (ma *MetricAgent) SendUpdateContinuously(mUpdate metric.Updatable) {
-	var metricUpdate metricUpdate
+func (ma *MetricAgent) SendAllMetricsContinuously(allMetrics []metric.UpdatableMetric) {
+	mUpdate := &metricUpdate{
+		mu:    new(sync.RWMutex),
+		value: make([]metric.UpdatableMetric, 0),
+	}
 
-	go ma.update(mUpdate, &metricUpdate)
+	go ma.update(allMetrics, mUpdate)
+
 	time.AfterFunc(10*time.Millisecond, func() {
-		ma.send(&metricUpdate)
+		ma.send(mUpdate)
 	})
-}
-
-func (ma *MetricAgent) SendAllMetricsContinuously() {
-	allMetrics := metric.GetUpdatable(
-		metric.NewMemStats,
-		metric.NewPsUtilStats,
-	)
-	ma.SendUpdateContinuously(allMetrics)
 }
