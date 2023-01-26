@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
+	"time"
 )
 
 type Type int
@@ -251,6 +253,39 @@ func IsValid(m Metric) bool {
 	}
 }
 
+type UpdatableMetric struct {
+	Metric
+	gaugeSource   func() float64
+	counterSource func() int64
+}
+
+func (um *UpdatableMetric) Update() {
+	switch um.MType {
+	case Gauge:
+		val := um.gaugeSource()
+		um.Val = &val
+	case Counter:
+		val := um.counterSource()
+		um.Delta = &val
+	}
+}
+
+func NewUpdatableGauge(ID string, source func() float64) UpdatableMetric {
+	return UpdatableMetric{
+		NewGaugeMetric(ID, source()),
+		source,
+		nil,
+	}
+}
+
+func NewUpdatableCounter(ID string, source func() int64) UpdatableMetric {
+	return UpdatableMetric{
+		NewCounterMetric(ID, source()),
+		nil,
+		source,
+	}
+}
+
 type NewMetricError struct {
 	Error      error
 	TypeError  bool
@@ -296,23 +331,35 @@ func NewMetric(ID string, typeName string, value string, hashKey string) (m Metr
 	return m, NewMetricError{}
 }
 
-type Updatable func() []Metric
-
-func GetUpdatable(sources ...Updatable) Updatable {
-	return func() []Metric {
-		var updates [][]Metric
-		var totalLen int
-		for _, s := range sources {
-			newSlice := s()
-			updates = append(updates, newSlice)
-			totalLen += len(newSlice)
-		}
-
-		result := make([]Metric, totalLen)
-		var i int
-		for _, s := range updates {
-			i += copy(result[i:], s)
-		}
-		return result
+func ConcatSources(sources ...[]UpdatableMetric) []UpdatableMetric {
+	var updates [][]UpdatableMetric
+	var totalLen int
+	for _, s := range sources {
+		updates = append(updates, s)
+		totalLen += len(s)
 	}
+
+	result := make([]UpdatableMetric, totalLen)
+	var i int
+	for _, s := range updates {
+		i += copy(result[i:], s)
+	}
+	return result
+}
+
+type ConcurrentTime struct {
+	time time.Time
+	mu   *sync.RWMutex
+}
+
+func (t *ConcurrentTime) set(time time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.time = time
+}
+
+func (t *ConcurrentTime) get() time.Time {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.time
 }

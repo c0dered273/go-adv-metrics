@@ -9,6 +9,7 @@ import (
 
 	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/log/agent"
+	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/rs/zerolog/log"
 )
@@ -25,7 +26,11 @@ func main() {
 	wg.Add(2)
 
 	metricClient := clients.NewMetricAgent(ctx, &wg, cfg)
-	metricClient.SendAllMetricsContinuously()
+	metricClient.SendAllMetricsContinuously(
+		metric.ConcatSources(
+			metric.NewMemStats(),
+			metric.NewPsUtilStats(),
+		))
 
 	<-shutdown
 	cancel()

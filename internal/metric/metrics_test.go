@@ -11,19 +11,27 @@ import (
 func TestGetUpdatable(t *testing.T) {
 	tests := []struct {
 		name      string
-		sourceOne []Metric
-		sourceTwo []Metric
+		sourceOne []UpdatableMetric
+		sourceTwo []UpdatableMetric
 		want      []string
 	}{
 		{
 			name: "successfully return updatable slice of metrics",
-			sourceOne: []Metric{
-				NewGaugeMetric("FirstGauge", 31337.1),
-				NewCounterMetric("FirstCounter", 12345),
+			sourceOne: []UpdatableMetric{
+				NewUpdatableGauge("FirstGauge", func() float64 {
+					return 31337.1
+				}),
+				NewUpdatableCounter("FirstCounter", func() int64 {
+					return 12345
+				}),
 			},
-			sourceTwo: []Metric{
-				NewGaugeMetric("SecondGauge", float64(42)),
-				NewCounterMetric("SecondCounter", 321),
+			sourceTwo: []UpdatableMetric{
+				NewUpdatableGauge("SecondGauge", func() float64 {
+					return float64(42)
+				}),
+				NewUpdatableCounter("SecondCounter", func() int64 {
+					return 321
+				}),
 			},
 			want: []string{
 				"/gauge/FirstGauge/31337.1",
@@ -36,9 +44,9 @@ func TestGetUpdatable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			updatable := GetUpdatable(func() []Metric { return tt.sourceOne }, func() []Metric { return tt.sourceTwo })
+			updatable := ConcatSources(tt.sourceOne, tt.sourceTwo)
 			var actual []string
-			for _, m := range updatable() {
+			for _, m := range updatable {
 				actual = append(actual, m.String())
 			}
 
