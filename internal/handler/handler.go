@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -18,7 +18,7 @@ type IndexData struct {
 	Metrics []string
 }
 
-func rootHandler(c *service.ServerConfig) http.HandlerFunc {
+func rootHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		indexTemplate, err := template.ParseFiles("templates/index.html")
 		if err != nil {
@@ -44,7 +44,7 @@ func rootHandler(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func connectionPingHandler(c *service.ServerConfig) http.HandlerFunc {
+func connectionPingHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := c.Repo.Ping(); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -53,7 +53,7 @@ func connectionPingHandler(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricStore(c *service.ServerConfig) http.HandlerFunc {
+func metricStore(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		newMetric, appError := metric.NewMetric(
 			chi.URLParam(r, "name"), chi.URLParam(r, "type"), chi.URLParam(r, "value"), "")
@@ -77,7 +77,7 @@ func metricStore(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricJSONStore(c *service.ServerConfig) http.HandlerFunc {
+func metricJSONStore(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newMetric metric.Metric
 
@@ -114,7 +114,7 @@ func metricJSONStore(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricStoreAll(c *service.ServerConfig) http.HandlerFunc {
+func metricStoreAll(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		buf := make([]metric.Metric, 0)
 		if err := json.NewDecoder(r.Body).Decode(&buf); err != nil {
@@ -152,7 +152,7 @@ func metricStoreAll(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricJSONLoad(c *service.ServerConfig) http.HandlerFunc {
+func metricJSONLoad(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var keyMetric metric.Metric
 
@@ -194,7 +194,7 @@ func metricJSONLoad(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricLoad(c *service.ServerConfig) http.HandlerFunc {
+func metricLoad(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "name")
 		mType := chi.URLParam(r, "type")
@@ -226,7 +226,7 @@ func metricLoad(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func Service(config *service.ServerConfig) http.Handler {
+func Service(config *config.ServerConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware2.GzipResponseEncoder)
 	r.Use(middleware2.GzipRequestDecoder)
@@ -235,6 +235,8 @@ func Service(config *service.ServerConfig) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+
+	r.Mount("/debug", middleware.Profiler())
 
 	r.Get("/", rootHandler(config))
 	r.Get("/ping", connectionPingHandler(config))

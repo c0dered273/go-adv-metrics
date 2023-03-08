@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,7 +20,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	logger := agent.NewAgentLogger()
-	cfg := service.NewAgentConfig(logger)
+	cfg := config.NewAgentConfig(logger)
 
 	var wg sync.WaitGroup
 	wg.Add(2)

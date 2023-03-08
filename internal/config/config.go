@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -45,4 +46,8 @@ func lookupEnvOrBool(key string, defaultVal bool) bool {
 		return parseBool
 	}
 	return defaultVal
+}
+
+func hasSchema(addr string) bool {
+	return strings.HasPrefix(addr, "http://") || strings.HasPrefix(addr, "https://")
 }

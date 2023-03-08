@@ -13,7 +13,6 @@ import (
 
 	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,7 +71,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			cfg := &service.AgentConfig{
+			cfg := &config.AgentConfig{
 				AgentCmd: config.AgentCmd{
 					Address:        srv.URL,
 					ReportInterval: 10 * time.Second,

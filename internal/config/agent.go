@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 )
 
@@ -27,4 +28,22 @@ func GetAgentConfig() AgentCmd {
 		PollInterval:   lookupEnvOrDuration("POLL_INTERVAL", agentFlag.PollInterval),
 		Key:            lookupEnvOrString("KEY", agentFlag.Key),
 	}
+}
+
+type AgentConfig struct {
+	AgentCmd
+	Logger zerolog.Logger
+}
+
+func NewAgentConfig(logger zerolog.Logger) *AgentConfig {
+	agentCfg := AgentConfig{
+		AgentCmd: GetAgentConfig(),
+		Logger:   logger,
+	}
+
+	if !hasSchema(agentCfg.Address) {
+		agentCfg.Address = "http://" + agentCfg.Address
+	}
+
+	return &agentCfg
 }

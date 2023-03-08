@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log/server"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,7 +20,7 @@ func main() {
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	logger := server.NewServerLogger()
-	cfg := service.NewServerConfig(logger, serverCtx)
+	cfg := config.NewServerConfig(serverCtx, logger, config.GetServerConfig())
 	httpServer := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
 
 	go func() {
