@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
@@ -219,5 +220,46 @@ func TestDBStorage_SaveAll(t *testing.T) {
 
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func BenchmarkDBStorage_SaveAll(b *testing.B) {
+	ctx := context.Background()
+	postgresC, err := NewPostgresContainer()
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err = postgresC.Terminate(context.Background())
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	db := NewDBStorage(
+		"postgres://postgres:postgres@localhost:5432/goadv",
+		false,
+		log.Logger,
+		ctx,
+	)
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	n := 20
+	metrics := make([]metric.Metric, n)
+	for i := 0; i < n; i++ {
+		metrics[i] = metric.NewGaugeMetric("TestMetric"+strconv.Itoa(i), float64(100+i))
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := db.SaveAll(ctx, metrics)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
