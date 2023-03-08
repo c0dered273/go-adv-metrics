@@ -21,7 +21,11 @@ func main() {
 
 	logger := server.NewServerLogger()
 	cfg := config.NewServerConfig(serverCtx, logger, config.GetServerConfig())
-	httpServer := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
+	httpServer := &http.Server{
+		Addr:              cfg.Address,
+		ReadHeaderTimeout: 30 * time.Second,
+		Handler:           handler.Service(cfg),
+	}
 
 	go func() {
 		<-shutdown
