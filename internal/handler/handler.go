@@ -8,6 +8,7 @@ import (
 
 	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -324,7 +325,7 @@ func Service(config *config.ServerConfig) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 	//r.Use(middleware2.GzipResponseEncoder)
-	//r.Use(middleware2.GzipRequestDecoder)
+	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.Compress(5))
 
 	r.Mount("/debug", middleware.Profiler())
