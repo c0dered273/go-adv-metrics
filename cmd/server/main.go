@@ -14,6 +14,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//	@Title			Metric Storage API
+//	@Description	Сервис хранения метрик.
+//	@Version		0.0.1
+
 func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

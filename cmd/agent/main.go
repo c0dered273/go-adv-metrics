@@ -14,6 +14,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//	@Title			Metrics collection agrnt
+//	@Description	Агент для сбора и отправки метрик.
+//	@Version		1.0
+
 func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

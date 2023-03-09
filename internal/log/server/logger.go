@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// NewServerLogger настраивает логгер для сервера. Лог пишется в консоль и в файл server.log
 func NewServerLogger() zerolog.Logger {
 	fileWriter, err := os.OpenFile("server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {

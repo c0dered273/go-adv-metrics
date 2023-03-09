@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// NewAgentLogger настраивает логгер для клиента. Лог пишется в консоль и в файл agent.log
 func NewAgentLogger() zerolog.Logger {
 	fileWriter, err := os.OpenFile("agent.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {

@@ -8,6 +8,8 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 )
 
+// MemStorage простое хранение метрик в оперативной памяти
+// Хранилище также используется в FileStorage в качестве кэша
 type MemStorage struct {
 	mx  *sync.RWMutex
 	str map[string]metric.Metric
@@ -78,6 +80,7 @@ func getID(newMetric metric.Metric) string {
 	return newMetric.GetName() + newMetric.GetType().String()
 }
 
+// NewMemStorage возвращает готовое к работе хранилище в оперативной памяти
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		str: make(map[string]metric.Metric),

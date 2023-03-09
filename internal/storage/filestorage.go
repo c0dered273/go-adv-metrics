@@ -11,6 +11,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// FileStorage позволяет использовать в качестве хранения файл на жестком диске.
+// Метрики хранятся в текстовом формате в виде json объектов.
+// Данные сначала кэшируются в памяти и с заданным интервалом сбрасываются на диск.
+// Хранилище возможно сделать синхронным задав storeInterval = 0
 type FileStorage struct {
 	ctx         context.Context
 	logger      zerolog.Logger
@@ -134,6 +138,7 @@ func (f *FileStorage) asyncStore(storeInterval time.Duration) {
 	}()
 }
 
+// NewFileStorage возвращает настроенное файловое хранилище
 func NewFileStorage(
 	fileName string, storeInterval time.Duration, isRestore bool, logger zerolog.Logger, ctx context.Context,
 ) *FileStorage {

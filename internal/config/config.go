@@ -9,14 +9,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Настройки агента по умолчанию.
+// Если не передана строка соединения с БД, метрики хранятся локально в json файле.
 const (
-	Address       = "localhost:8080"
-	StoreInterval = 300 * time.Second
-	StoreFile     = "/tmp/devops-metrics-db.json"
-	Restore       = true
+	Address       = "localhost:8080"              // Адрес сервера
+	StoreInterval = 300 * time.Second             // Интервал сброса метрик на диск
+	StoreFile     = "/tmp/devops-metrics-db.json" // Путь к файлу хранения метрик
+	Restore       = true                          // Флаг показывает сохранять ли метрики с прошлого сеанса или очистить БД
 
-	ReportInterval = 10 * time.Second
-	PollInterval   = 2 * time.Second
+	ReportInterval = 10 * time.Second // Интервал отправки обновлений на сервер
+	PollInterval   = 2 * time.Second  // Интервал обновления метрик
 )
 
 func lookupEnvOrString(key string, defaultVal string) string {

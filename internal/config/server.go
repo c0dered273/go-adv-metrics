@@ -19,6 +19,14 @@ type ServerCmd struct {
 	Key           string
 }
 
+// GetServerConfig получает конфигурацией сервера из командной строки или переменных окружения.
+// Параметры из переменных окружения имеют приоритет.
+// ADDRESS - адрес и порт на котором необходимо поднять сервер
+// DATABASE_DSN - строка подключения к БД
+// STORE_INTERVAL - интервал сброса метрик на диск (необязательно)
+// STORE_FILE - имя файла для хранения метрик (необязательно)
+// RESTORE - сохранять ли метрики с предыдущего сеанса (по умолчанию нет)
+// KEY - ключ для подписи метрик должен быть одинаковым на сервере и агенте
 func GetServerConfig() ServerCmd {
 	srvFlag := ServerCmd{}
 	pflag.StringVarP(&srvFlag.Address, "address", "a", Address, "Server address:port")
@@ -45,6 +53,7 @@ type ServerConfig struct {
 	Repo   storage.Repository
 }
 
+// NewServerConfig возвращает структуру с необходимыми настройками сервера
 func NewServerConfig(ctx context.Context, logger zerolog.Logger, srvCmd ServerCmd) *ServerConfig {
 	srvCfg := ServerConfig{
 		ServerCmd: srvCmd,
