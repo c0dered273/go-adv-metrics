@@ -324,9 +324,9 @@ func Service(config *config.ServerConfig) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
-	r.Use(middleware2.GzipResponseEncoder)
+	//r.Use(middleware2.GzipResponseEncoder)
 	r.Use(middleware2.GzipRequestDecoder)
-	//r.Use(middleware.Compress(5))
+	r.Use(middleware.Compress(5))
 
 	r.Mount("/debug", middleware.Profiler())
 
