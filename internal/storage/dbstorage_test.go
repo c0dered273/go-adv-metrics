@@ -5,65 +5,118 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
+	"github.com/docker/go-connections/nat"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func NewPostgresContainer() (testcontainers.Container, error) {
-	ctx := context.Background()
+const (
+	dbName   = "goadv"
+	dbUser   = "postgres"
+	dbPasswd = "postgres"
+)
+
+type postgresContainer struct {
+	testcontainers.Container
+}
+
+type postgresContainerOption func(req *testcontainers.ContainerRequest)
+
+func WithWaitStrategy(strategies ...wait.Strategy) func(req *testcontainers.ContainerRequest) {
+	return func(req *testcontainers.ContainerRequest) {
+		req.WaitingFor = wait.ForAll(strategies...).WithDeadline(1 * time.Minute)
+	}
+}
+
+func WithPort(port string) func(req *testcontainers.ContainerRequest) {
+	return func(req *testcontainers.ContainerRequest) {
+		req.ExposedPorts = append(req.ExposedPorts, port)
+	}
+}
+
+func WithInitialDatabase(user string, password string, dbName string) func(req *testcontainers.ContainerRequest) {
+	return func(req *testcontainers.ContainerRequest) {
+		req.Env["POSTGRES_USER"] = user
+		req.Env["POSTGRES_PASSWORD"] = password
+		req.Env["POSTGRES_DB"] = dbName
+	}
+}
+
+func startContainer(ctx context.Context, opts ...postgresContainerOption) (*postgresContainer, error) {
 	req := testcontainers.ContainerRequest{
-		Name:  "goadv_postgres_test",
-		Image: "postgres:14",
+		Image: "postgres:14-alpine",
 		Env: map[string]string{
 			"POSTGRES_USER":     "postgres",
 			"POSTGRES_PASSWORD": "postgres",
 			"POSTGRES_DB":       "goadv",
 		},
-		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor:   wait.ForLog("database system is ready to accept connections"),
+		ExposedPorts: []string{},
+		Cmd:          []string{"postgres", "-c", "fsync=off"},
 	}
 
-	postgresC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	for _, opt := range opts {
+		opt(&req)
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		Reuse:            true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return postgresC, nil
+	return &postgresContainer{Container: container}, nil
 }
 
-func TestDBStorage_Save(t *testing.T) {
-	ctx := context.Background()
-	postgresC, err := NewPostgresContainer()
-	if err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		err = postgresC.Terminate(context.Background())
-		if err != nil {
-			t.Fatalf("failed to terminate container: %s", err.Error())
-		}
-	}()
+func GetTestDB(ctx context.Context, t *testing.T) *DBStorage {
+	port, err := nat.NewPort("tcp", "5432")
+	require.NoError(t, err)
 
+	postgresC, err := startContainer(ctx,
+		WithPort(port.Port()),
+		WithInitialDatabase(dbUser, dbPasswd, dbName),
+		WithWaitStrategy(wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(5*time.Second)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	endpoint, err := postgresC.Endpoint(ctx, "")
+	assert.NoError(t, err)
+
+	dsn := fmt.Sprintf("postgres://postgres:postgres@%v/goadv", endpoint)
 	db := NewDBStorage(
-		"postgres://postgres:postgres@localhost:5432/goadv",
+		dsn,
 		false,
 		log.Logger,
 		ctx,
 	)
-	defer func() {
+
+	t.Cleanup(func() {
 		err = db.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
-	}()
+
+		if err := postgresC.Terminate(ctx); err != nil {
+			t.Fatalf("failed to terminate container: %s", err)
+		}
+	})
+
+	return db
+}
+
+func TestDBStorage_Save(t *testing.T) {
+	ctx := context.Background()
+	db := GetTestDB(ctx, t)
 
 	tests := []struct {
 		name    string
@@ -86,7 +139,7 @@ func TestDBStorage_Save(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = db.Save(ctx, tt.store)
+			err := db.Save(ctx, tt.store)
 			if err != nil {
 				tt.wantErr(t, err, fmt.Sprintf("failed to save metric: %v", tt.store))
 				return
@@ -105,29 +158,7 @@ func TestDBStorage_Save(t *testing.T) {
 
 func TestDBStorage_SaveCounter(t *testing.T) {
 	ctx := context.Background()
-	postgresC, err := NewPostgresContainer()
-	if err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		err = postgresC.Terminate(context.Background())
-		if err != nil {
-			t.Fatalf("failed to terminate container: %s", err.Error())
-		}
-	}()
-
-	db := NewDBStorage(
-		"postgres://postgres:postgres@localhost:5432/goadv",
-		false,
-		log.Logger,
-		ctx,
-	)
-	defer func() {
-		err = db.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	db := GetTestDB(ctx, t)
 
 	tests := []struct {
 		name    string
@@ -144,7 +175,7 @@ func TestDBStorage_SaveCounter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = db.Save(ctx, tt.store)
+			err := db.Save(ctx, tt.store)
 			if err != nil {
 				tt.wantErr(t, err, fmt.Sprintf("failed to save metric: %v", tt.store))
 				return
@@ -168,29 +199,7 @@ func TestDBStorage_SaveCounter(t *testing.T) {
 
 func TestDBStorage_SaveAll(t *testing.T) {
 	ctx := context.Background()
-	postgresC, err := NewPostgresContainer()
-	if err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		err = postgresC.Terminate(context.Background())
-		if err != nil {
-			t.Fatalf("failed to terminate container: %s", err.Error())
-		}
-	}()
-
-	db := NewDBStorage(
-		"postgres://postgres:postgres@localhost:5432/goadv",
-		false,
-		log.Logger,
-		ctx,
-	)
-	defer func() {
-		err = db.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	db := GetTestDB(ctx, t)
 
 	tests := []struct {
 		name    string
@@ -208,7 +217,7 @@ func TestDBStorage_SaveAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = db.SaveAll(ctx, tt.want)
+			err := db.SaveAll(ctx, tt.want)
 			if err != nil {
 				tt.wantErr(t, err, fmt.Sprintf("failed to save metrics: %v", tt.want))
 			}
@@ -225,27 +234,46 @@ func TestDBStorage_SaveAll(t *testing.T) {
 
 func BenchmarkDBStorage_SaveAll(b *testing.B) {
 	ctx := context.Background()
-	postgresC, err := NewPostgresContainer()
+	port, err := nat.NewPort("tcp", "5432")
 	if err != nil {
-		panic(err)
+		log.Fatal().Err(err).Send()
+		return
 	}
-	defer func() {
-		err = postgresC.Terminate(context.Background())
-		if err != nil {
-			panic(err)
-		}
-	}()
 
+	postgresC, err := startContainer(ctx,
+		WithPort(port.Port()),
+		WithInitialDatabase(dbUser, dbPasswd, dbName),
+		WithWaitStrategy(wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(5*time.Second)),
+	)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+		return
+	}
+
+	endpoint, err := postgresC.Endpoint(ctx, "")
+	if err != nil {
+		log.Fatal().Err(err).Send()
+		return
+	}
+
+	dsn := fmt.Sprintf("postgres://postgres:postgres@%v/goadv", endpoint)
 	db := NewDBStorage(
-		"postgres://postgres:postgres@localhost:5432/goadv",
+		dsn,
 		false,
 		log.Logger,
 		ctx,
 	)
+
 	defer func() {
 		err = db.Close()
 		if err != nil {
-			panic(err)
+			log.Fatal().Err(err).Send()
+		}
+
+		if err := postgresC.Terminate(ctx); err != nil {
+			if err != nil {
+				log.Fatal().Err(err).Send()
+			}
 		}
 	}()
 
