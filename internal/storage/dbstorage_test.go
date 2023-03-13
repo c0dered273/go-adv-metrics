@@ -271,9 +271,7 @@ func BenchmarkDBStorage_SaveAll(b *testing.B) {
 		}
 
 		if err := postgresC.Terminate(ctx); err != nil {
-			if err != nil {
-				log.Fatal().Err(err).Send()
-			}
+			log.Fatal().Err(err).Send()
 		}
 	}()
 
