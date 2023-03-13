@@ -361,6 +361,9 @@ func ExampleStoreMetricFromJSONHandler() {
 		SetHeader("Content-Type", "application/json").
 		SetBody(gaugeMetric).
 		Post("localhost:8080/update/")
+
+	// Output:
+	//
 }
 
 func ExampleLoadMetricByJSONHandler() {
@@ -375,4 +378,7 @@ func ExampleLoadMetricByJSONHandler() {
 	var responseMetric metric.Metric
 	_ = json.Unmarshal(resp.Body(), &responseMetric)
 	fmt.Println(responseMetric)
+
+	// Output:
+	// { gauge <nil> <nil> }
 }
