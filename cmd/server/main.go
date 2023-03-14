@@ -8,11 +8,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/log/server"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/rs/zerolog/log"
 )
+
+//	@Title			Metric Storage API
+//	@Description	Сервис хранения метрик.
+//	@Version		0.0.1
 
 func main() {
 	shutdown := make(chan os.Signal, 1)
@@ -20,8 +24,12 @@ func main() {
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	logger := server.NewServerLogger()
-	cfg := service.NewServerConfig(logger, serverCtx)
-	httpServer := &http.Server{Addr: cfg.Address, Handler: handler.Service(cfg)}
+	cfg := config.NewServerConfig(serverCtx, logger, config.GetServerConfig())
+	httpServer := &http.Server{
+		Addr:              cfg.Address,
+		ReadHeaderTimeout: 30 * time.Second,
+		Handler:           handler.Service(cfg),
+	}
 
 	go func() {
 		<-shutdown

@@ -16,6 +16,7 @@ const (
 	DefaultTimeout = 15 * time.Second
 )
 
+// DBStorage структура инкапсулирует методы для работы с базой данных из стандартного пакета database/sql
 type DBStorage struct {
 	DB           *sql.DB
 	ctx          context.Context
@@ -162,6 +163,8 @@ func (ds *DBStorage) initDB(isRestore bool) error {
 	return nil
 }
 
+// NewDBStorage возвращает настроенную структуру для работы с БД.
+// Используется база Postgresql и драйвер pgx, с биндингом к стандартному пакету database/sql
 func NewDBStorage(databaseDsn string, isRestore bool, logger zerolog.Logger, ctx context.Context) *DBStorage {
 	connConfig, err := pgx.ParseConnectionString(databaseDsn)
 	if err != nil {

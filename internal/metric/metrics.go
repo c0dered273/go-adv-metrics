@@ -1,3 +1,4 @@
+// Package metric содержит методы для работы с метриками
 package metric
 
 import (
@@ -13,6 +14,7 @@ import (
 	"time"
 )
 
+// Type Тип метрики
 type Type int
 
 const (
@@ -25,10 +27,12 @@ var types = [...]string{
 	"counter",
 }
 
+// Value Метод необходим для корректного преобразования типа метрики в значение, хранимое в БД
 func (t Type) Value() (driver.Value, error) {
 	return t.String(), nil
 }
 
+// Scan Метод преобразует тип метрики из БД в корректный вид
 func (t *Type) Scan(src any) error {
 	sType, err := NewType(src.(string))
 	if err != nil {
@@ -228,6 +232,7 @@ func (m *Metric) CheckHash(hashKey string) (bool, error) {
 	return true, nil
 }
 
+// NewGaugeMetric основная функция для создания метрики типа gauge
 func NewGaugeMetric(ID string, value float64) Metric {
 	var m Metric
 	m.setName(ID)
@@ -235,6 +240,7 @@ func NewGaugeMetric(ID string, value float64) Metric {
 	return m
 }
 
+// NewCounterMetric основная функция для создания метрики типа counter
 func NewCounterMetric(ID string, value int64) Metric {
 	var m Metric
 	m.setName(ID)
@@ -331,6 +337,8 @@ func NewMetric(ID string, typeName string, value string, hashKey string) (m Metr
 	return m, NewMetricError{}
 }
 
+// ConcatSources функция эффективно склеивает массивы с обновляемыми метриками,
+// позволяет удобно использовать несколько источников метрик
 func ConcatSources(sources ...[]UpdatableMetric) []UpdatableMetric {
 	var updates [][]UpdatableMetric
 	var totalLen int

@@ -6,10 +6,16 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 )
 
+// PersistenceRepo Репозиторий применяется как промежуточный для подключения логики сохранения метрик,
+// в зависимости от типа.
+// Используется с MemStorage и FileStorage
 type PersistenceRepo struct {
 	Repository
 }
 
+// Save метод содержит логику сохранения и обновления для каждого типа метрики.
+// Gauge - если метрика с таким типом и именем уже существует, значение метрики обновляется на новое
+// Counter - если метрика с таким типом и именем уже существует, новое значение прибавляется к существующему
 func (p *PersistenceRepo) Save(ctx context.Context, newMetric metric.Metric) error {
 	switch newMetric.GetType() {
 	case metric.Gauge:

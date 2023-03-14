@@ -6,6 +6,7 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 )
 
+// Repository интерфейс описывающий слой хранения метрик
 type Repository interface {
 	Save(context.Context, metric.Metric) error
 	SaveAll(context.Context, []metric.Metric) error

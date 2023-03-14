@@ -9,6 +9,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+// Ограничение по частоте обновления метрик
 const cacheTimeCPU = 1 * time.Second
 
 var (
@@ -27,6 +28,11 @@ func updatePSStats() {
 		lastUpdateCPU.set(time.Now())
 	}
 }
+
+// NewPsUtilStats возвращает обновляемые метрики.
+// Значение метрик кэшируется, метрики обновляются не чаще одного раза в секунду
+// TotalMemory - общая память на хосте
+// FreeMemory - свободная память на хосте
 func NewPsUtilStats() []UpdatableMetric {
 	result := make([]UpdatableMetric, 0)
 	virtMem, _ = mem.VirtualMemory()

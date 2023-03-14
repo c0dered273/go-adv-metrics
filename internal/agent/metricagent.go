@@ -1,3 +1,4 @@
+// Package agent модуль периодически обновляет метрики и корзинами отправляет на сервер
 package agent
 
 import (
@@ -5,11 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/go-resty/resty/v2"
 )
 
+// Настройки отправки обновлений от агента
 const (
 	updateEndpoint   = "/updates/"
 	retryCount       = 3
@@ -37,15 +39,17 @@ func (m *metricUpdate) get() []metric.UpdatableMetric {
 	return m.value
 }
 
+// MetricAgent предоставляет методы для обновления и отправки метрик на сервер
 type MetricAgent struct {
 	Ctx    context.Context
 	Wg     *sync.WaitGroup
-	Config *service.AgentConfig
+	Config *config.AgentConfig
 	client *resty.Client
 	buffer []metric.UpdatableMetric
 }
 
-func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *service.AgentConfig) MetricAgent {
+// NewMetricAgent возвращает настроенного агента
+func NewMetricAgent(ctx context.Context, wg *sync.WaitGroup, config *config.AgentConfig) MetricAgent {
 	client := resty.New()
 	client.
 		SetRetryCount(retryCount).
@@ -139,6 +143,8 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	return nil
 }
 
+// SendAllMetricsContinuously метод инкапсулирует периодическое обновление и отправку метрик
+// На вход получает слайс с сырыми метриками и последовательно обновляет каждую
 func (ma *MetricAgent) SendAllMetricsContinuously(allMetrics []metric.UpdatableMetric) {
 	mUpdate := &metricUpdate{
 		mu:    new(sync.RWMutex),

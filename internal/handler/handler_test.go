@@ -1,18 +1,18 @@
-package tests
+package handler
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/c0dered273/go-adv-metrics/internal/config"
-	"github.com/c0dered273/go-adv-metrics/internal/handler"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -153,7 +153,7 @@ func TestService(t *testing.T) {
 		},
 	}
 
-	cfg := &service.ServerConfig{
+	cfg := &config.ServerConfig{
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
@@ -173,7 +173,7 @@ func TestService(t *testing.T) {
 			}
 
 			writer := httptest.NewRecorder()
-			h := handler.Service(cfg)
+			h := Service(cfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()
@@ -223,7 +223,7 @@ func Test_metricStore(t *testing.T) {
 		},
 	}
 
-	cfg := &service.ServerConfig{
+	cfg := &config.ServerConfig{
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
@@ -236,7 +236,7 @@ func Test_metricStore(t *testing.T) {
 			request2 := httptest.NewRequest(tt.method, tt.url2, nil)
 			request3 := httptest.NewRequest("GET", tt.url3, nil)
 			writer := httptest.NewRecorder()
-			h := handler.Service(cfg)
+			h := Service(cfg)
 			h.ServeHTTP(writer, request1)
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)
@@ -319,7 +319,7 @@ func Test_metricJSONLoad(t *testing.T) {
 		},
 	}
 
-	cfg := &service.ServerConfig{
+	cfg := &config.ServerConfig{
 		ServerCmd: config.ServerCmd{
 			Address: "localhost:8080",
 		},
@@ -331,7 +331,7 @@ func Test_metricJSONLoad(t *testing.T) {
 			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
 			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
-			h := handler.Service(cfg)
+			h := Service(cfg)
 			h.ServeHTTP(writer, storeReq)
 			h.ServeHTTP(writer, loadReq)
 			res := writer.Result()
@@ -351,4 +351,34 @@ func Test_metricJSONLoad(t *testing.T) {
 			assert.Equal(t, true, tt.want.metric.Equal(&actualMetric))
 		})
 	}
+}
+
+func ExampleStoreMetricFromJSONHandler() {
+	gaugeMetric := metric.NewGaugeMetric("TestGauge1", 123.456)
+
+	client := resty.New()
+	_, _ = client.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(gaugeMetric).
+		Post("localhost:8080/update/")
+
+	// Output:
+	//
+}
+
+func ExampleLoadMetricByJSONHandler() {
+	reqMetric := metric.NewGaugeMetric("MetricName", 0)
+
+	client := resty.New()
+	resp, _ := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(reqMetric).
+		Post("localhost:8080/value/")
+
+	var responseMetric metric.Metric
+	_ = json.Unmarshal(resp.Body(), &responseMetric)
+	fmt.Println(responseMetric)
+
+	// Output:
+	// { gauge <nil> <nil> }
 }

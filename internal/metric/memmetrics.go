@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Ограничение по частоте обновления метрик
 const cacheTimeMem = 1 * time.Second
 
 var (
@@ -27,6 +28,9 @@ func updateMemStats() {
 	}
 }
 
+// NewMemStats возвращает обновляемые метрики.
+// Значение метрик кэшируется, метрики обновляются не чаще одного раза в секунду.
+// Отдает метрики приложения из пакета runtime
 func NewMemStats() []UpdatableMetric {
 	runtime.ReadMemStats(&m)
 

@@ -1,0 +1,230 @@
+definitions:
+  metric.Metric:
+    properties:
+      delta:
+        type: integer
+      hash:
+        type: string
+      id:
+        type: string
+      type:
+        $ref: '#/definitions/metric.Type'
+      value:
+        type: number
+    type: object
+  metric.Metrics:
+    properties:
+      metrics:
+        items:
+          $ref: '#/definitions/metric.Metric'
+        type: array
+    type: object
+  metric.Type:
+    enum:
+    - 0
+    - 1
+    type: integer
+    x-enum-varnames:
+    - Gauge
+    - Counter
+info:
+  contact: {}
+  description: Сервис сбора и хранения метрик.
+  title: Metrics collection API
+  version: "1.0"
+paths:
+  /:
+    get:
+      description: Генерирует html страницу со списком всех метрик переданных на сервер.
+      operationId: rootHandler
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Отдает html со всеми метриками
+      tags:
+      - Index
+  /ping:
+    get:
+      description: Позволяет проверить соединение с базой данных.
+      operationId: connectionPing
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Проверяет соединение с БД
+      tags:
+      - Ping
+  /update/:
+    post:
+      consumes:
+      - application/json
+      description: Сохраняет или обновляет одну метрику из json объекта.
+      operationId: storeFromJSON
+      parameters:
+      - description: Metric data
+        in: body
+        name: metric_data
+        required: true
+        schema:
+          $ref: '#/definitions/metric.Metric'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Сохраняет метрику из json
+      tags:
+      - Store
+  /update/{type}/{name}/{value}:
+    post:
+      description: Сохраняет или обновляет одну метрику через url запрос.
+      operationId: storeFromURL
+      parameters:
+      - description: Metric type
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Metric value
+        in: path
+        name: value
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Internal error
+          schema:
+            type: string
+        "501":
+          description: Unknown metric type
+          schema:
+            type: string
+      summary: Сохраняет метрику из запроса
+      tags:
+      - Store
+  /updates/:
+    post:
+      consumes:
+      - application/json
+      description: Сохраняет или обновляет метрики из массива json объектов.
+      operationId: storeAllFromJSON
+      parameters:
+      - description: Metric data
+        in: body
+        name: metric_data
+        required: true
+        schema:
+          $ref: '#/definitions/metric.Metrics'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Сохраняет метрики из json
+      tags:
+      - Store
+  /value/:
+    post:
+      consumes:
+      - application/json
+      description: Отдает одну метрику согласно имени и типа метрики из json запроса.
+      operationId: loadFromJSON
+      parameters:
+      - description: Metric data
+        in: body
+        name: metric_data
+        required: true
+        schema:
+          $ref: '#/definitions/metric.Metric'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metric.Metric'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Metric not found
+          schema:
+            type: string
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Отдает метрику из json
+      tags:
+      - Load
+  /value/{type}/{name}:
+    get:
+      description: Отдает одну метрику согласно имени и типа из url запроса.
+      operationId: LoadFromURL
+      parameters:
+      - description: Metric type
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Metric not found
+          schema:
+            type: string
+        "500":
+          description: Internal error
+          schema:
+            type: string
+      summary: Отдает метрику из запроса
+      tags:
+      - Load
+swagger: "2.0"

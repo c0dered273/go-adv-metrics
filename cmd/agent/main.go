@@ -8,11 +8,15 @@ import (
 	"syscall"
 
 	clients "github.com/c0dered273/go-adv-metrics/internal/agent"
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/log/agent"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/rs/zerolog/log"
 )
+
+//	@Title			Metrics collection agrnt
+//	@Description	Агент для сбора и отправки метрик.
+//	@Version		1.0
 
 func main() {
 	shutdown := make(chan os.Signal, 1)
@@ -20,7 +24,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	logger := agent.NewAgentLogger()
-	cfg := service.NewAgentConfig(logger)
+	cfg := config.NewAgentConfig(logger)
 
 	var wg sync.WaitGroup
 	wg.Add(2)

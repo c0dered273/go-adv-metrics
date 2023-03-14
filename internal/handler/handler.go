@@ -6,23 +6,39 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/c0dered273/go-adv-metrics/internal/config"
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
-	"github.com/c0dered273/go-adv-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+//	@Title			Metrics collection API
+//	@Description	Сервис сбора и хранения метрик.
+//	@Version		1.0
 
 type IndexData struct {
 	Title   string
 	Metrics []string
 }
 
-func rootHandler(c *service.ServerConfig) http.HandlerFunc {
+// RootHandler godoc
+//
+//	@Tags			Index
+//	@Summary		Отдает html со всеми метриками
+//	@Description	Генерирует html страницу со списком всех метрик переданных на сервер.
+//	@ID				rootHandler
+//	@Produce		html
+//	@Success		200
+//	@Failure		500	{string}	string	"Internal error"
+//	@Router			/ [get]
+func RootHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		indexTemplate, err := template.ParseFiles("templates/index.html")
 		if err != nil {
 			c.Logger.Fatal().Err(err).Msg("handler: failed parse template file")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
 		}
 
 		allMetrics, _ := c.Repo.FindAll(r.Context())
@@ -44,7 +60,16 @@ func rootHandler(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func connectionPingHandler(c *service.ServerConfig) http.HandlerFunc {
+// ConnectionPingHandler godoc
+//
+//	@Tags			Ping
+//	@Summary		Проверяет соединение с БД
+//	@Description	Позволяет проверить соединение с базой данных.
+//	@ID				connectionPing
+//	@Success		200
+//	@Failure		500	{string}	string	"Internal error"
+//	@Router			/ping [get]
+func ConnectionPingHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := c.Repo.Ping(); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -53,7 +78,21 @@ func connectionPingHandler(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricStore(c *service.ServerConfig) http.HandlerFunc {
+// StoreMetricFromURLRequestHandler godoc
+//
+//	@Tags			Store
+//	@Summary		Сохраняет метрику из запроса
+//	@Description	Сохраняет или обновляет одну метрику через url запрос.
+//	@ID				storeFromURL
+//	@Param			type	path	string	true	"Metric type"
+//	@Param			name	path	string	true	"Metric name"
+//	@Param			value	path	string	true	"Metric value"
+//	@Success		200
+//	@Failure		400	{string}	string	"Bad request"
+//	@Failure		500	{string}	string	"Internal error"
+//	@Failure		501	{string}	string	"Unknown metric type"
+//	@Router			/update/{type}/{name}/{value} [post]
+func StoreMetricFromURLRequestHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		newMetric, appError := metric.NewMetric(
 			chi.URLParam(r, "name"), chi.URLParam(r, "type"), chi.URLParam(r, "value"), "")
@@ -77,7 +116,19 @@ func metricStore(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricJSONStore(c *service.ServerConfig) http.HandlerFunc {
+// StoreMetricFromJSONHandler godoc
+//
+//	@Tags			Store
+//	@Summary		Сохраняет метрику из json
+//	@Description	Сохраняет или обновляет одну метрику из json объекта.
+//	@ID				storeFromJSON
+//	@Accept			json
+//	@Param			metric_data	body	metric.Metric	true	"Metric data"
+//	@Success		200
+//	@Failure		400	{string}	string	"Bad request"
+//	@Failure		500	{string}	string	"Internal error"
+//	@Router			/update/ [post]
+func StoreMetricFromJSONHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newMetric metric.Metric
 
@@ -114,7 +165,19 @@ func metricJSONStore(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricStoreAll(c *service.ServerConfig) http.HandlerFunc {
+// StoreAllMetricsFromJSONHandler godoc
+//
+//	@Tags			Store
+//	@Summary		Сохраняет метрики из json
+//	@Description	Сохраняет или обновляет метрики из массива json объектов.
+//	@ID				storeAllFromJSON
+//	@Accept			json
+//	@Param			metric_data	body	metric.Metrics	true	"Metric data"
+//	@Success		200
+//	@Failure		400	{string}	string	"Bad request"
+//	@Failure		500	{string}	string	"Internal error"
+//	@Router			/updates/ [post]
+func StoreAllMetricsFromJSONHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		buf := make([]metric.Metric, 0)
 		if err := json.NewDecoder(r.Body).Decode(&buf); err != nil {
@@ -152,7 +215,21 @@ func metricStoreAll(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricJSONLoad(c *service.ServerConfig) http.HandlerFunc {
+// LoadMetricByJSONHandler godoc
+//
+//	@Tags			Load
+//	@Summary		Отдает метрику из json
+//	@Description	Отдает одну метрику согласно имени и типа метрики из json запроса.
+//	@ID				loadFromJSON
+//	@Accept			json
+//	@Produce		json
+//	@Param			metric_data	body		metric.Metric	true	"Metric data"
+//	@Success		200			{object}	metric.Metric
+//	@Failure		400			{string}	string	"Bad request"
+//	@Failure		404			{string}	string	"Metric not found"
+//	@Failure		500			{string}	string	"Internal error"
+//	@Router			/value/ [post]
+func LoadMetricByJSONHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var keyMetric metric.Metric
 
@@ -194,7 +271,21 @@ func metricJSONLoad(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func metricLoad(c *service.ServerConfig) http.HandlerFunc {
+// LoadMetricByURLRequestHandler
+//
+//	@Tags			Load
+//	@Summary		Отдает метрику из запроса
+//	@Description	Отдает одну метрику согласно имени и типа из url запроса.
+//	@ID				LoadFromURL
+//	@Produce		plain
+//	@Param			type	path		string	true	"Metric type"
+//	@Param			name	path		string	true	"Metric name"
+//	@Success		200		{string}	string
+//	@Failure		400		{string}	string	"Bad request"
+//	@Failure		404		{string}	string	"Metric not found"
+//	@Failure		500		{string}	string	"Internal error"
+//	@Router			/value/{type}/{name} [get]
+func LoadMetricByURLRequestHandler(c *config.ServerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "name")
 		mType := chi.URLParam(r, "type")
@@ -226,23 +317,26 @@ func metricLoad(c *service.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func Service(config *service.ServerConfig) http.Handler {
+func Service(config *config.ServerConfig) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware2.GzipResponseEncoder)
-	r.Use(middleware2.GzipRequestDecoder)
-	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+	//r.Use(middleware2.GzipResponseEncoder)
+	r.Use(middleware2.GzipRequestDecoder)
+	r.Use(middleware.Compress(5))
 
-	r.Get("/", rootHandler(config))
-	r.Get("/ping", connectionPingHandler(config))
-	r.Post("/value/", metricJSONLoad(config))
-	r.Get("/value/{type}/{name}", metricLoad(config))
-	r.Post("/update/", metricJSONStore(config))
-	r.Post("/updates/", metricStoreAll(config))
-	r.Post("/update/{type}/{name}/{value}", metricStore(config))
+	r.Mount("/debug", middleware.Profiler())
+
+	r.Get("/", RootHandler(config))
+	r.Get("/ping", ConnectionPingHandler(config))
+	r.Post("/value/", LoadMetricByJSONHandler(config))
+	r.Get("/value/{type}/{name}", LoadMetricByURLRequestHandler(config))
+	r.Post("/update/", StoreMetricFromJSONHandler(config))
+	r.Post("/updates/", StoreAllMetricsFromJSONHandler(config))
+	r.Post("/update/{type}/{name}/{value}", StoreMetricFromURLRequestHandler(config))
 
 	return r
 }
