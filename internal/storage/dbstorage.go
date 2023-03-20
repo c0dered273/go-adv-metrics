@@ -55,13 +55,13 @@ func (ds *DBStorage) SaveAll(ctx context.Context, metrics []metric.Metric) error
 	}
 
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		if err = tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			ds.logger.Error().Err(err).Msg("dbStorage: failed to rollback transaction")
 		}
 	}()
 
 	for _, m := range metrics {
-		err := ds.Save(ctx, m)
+		err = ds.Save(ctx, m)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (ds *DBStorage) FindAll(ctx context.Context) ([]metric.Metric, error) {
 
 	for rows.Next() {
 		m := metric.Metric{}
-		err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Val, &m.Hash)
+		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Val, &m.Hash)
 		if err != nil {
 			return nil, err
 		}
