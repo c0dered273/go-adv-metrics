@@ -110,7 +110,7 @@ func TestFileStorage_FindAll(t *testing.T) {
 
 			got, err := s.FindAll(tt.args.ctx)
 			_ = s.ReadMetrics()
-			tt.wantErr(t, err, fmt.Sprint("FindAll()"))
+			tt.wantErr(t, err, "FindAll()")
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -212,7 +212,7 @@ func TestFileStorage_Ping(t *testing.T) {
 				memCache:    tt.fields.memCache,
 				isSyncStore: tt.fields.isSyncStore,
 			}
-			tt.wantErr(t, f.Ping(), fmt.Sprintf("Ping()"))
+			tt.wantErr(t, f.Ping(), "Ping()")
 		})
 	}
 }
@@ -384,7 +384,7 @@ func TestFileStorage_ReadMetrics(t *testing.T) {
 				isSyncStore: true,
 			}
 
-			tt.wantErr(t, s.ReadMetrics(), fmt.Sprint("ReadMetrics()"))
+			tt.wantErr(t, s.ReadMetrics(), "ReadMetrics()")
 		})
 	}
 }
@@ -442,7 +442,7 @@ func TestFileStorage_WriteMetrics(t *testing.T) {
 				isSyncStore: true,
 			}
 
-			tt.wantErr(t, s.WriteMetrics(), fmt.Sprint("WriteMetrics()"))
+			tt.wantErr(t, s.WriteMetrics(), "WriteMetrics()")
 		})
 	}
 }
