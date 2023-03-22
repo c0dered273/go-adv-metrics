@@ -19,11 +19,19 @@ type FileStorage struct {
 	ctx         context.Context
 	logger      zerolog.Logger
 	mx          *sync.Mutex
-	file        *os.File
+	file        FileReaderWriter
 	encoder     *json.Encoder
 	decoder     *json.Decoder
 	memCache    Repository
 	isSyncStore bool
+}
+
+type FileReaderWriter interface {
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+	Seek(offset int64, whence int) (ret int64, err error)
+	Stat() (os.FileInfo, error)
+	Close() error
 }
 
 func (f *FileStorage) Save(ctx context.Context, newMetric metric.Metric) error {
@@ -140,7 +148,7 @@ func (f *FileStorage) asyncStore(storeInterval time.Duration) {
 
 // NewFileStorage возвращает настроенное файловое хранилище
 func NewFileStorage(
-	fileName string, storeInterval time.Duration, isRestore bool, logger zerolog.Logger, ctx context.Context,
+	ctx context.Context, fileName string, storeInterval time.Duration, isRestore bool, logger zerolog.Logger,
 ) *FileStorage {
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_SYNC, 0777)
 	if err != nil {
@@ -148,6 +156,12 @@ func NewFileStorage(
 		panic(err)
 	}
 
+	return CreateFileStorage(ctx, file, storeInterval, isRestore, logger)
+}
+
+func CreateFileStorage(
+	ctx context.Context, file FileReaderWriter, storeInterval time.Duration, isRestore bool, logger zerolog.Logger,
+) *FileStorage {
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	decoder := json.NewDecoder(file)
