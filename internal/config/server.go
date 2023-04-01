@@ -69,7 +69,7 @@ func NewServerConfig(ctx context.Context, logger zerolog.Logger, srvCmd ServerCm
 		srvCfg.Repo = storage.NewDBStorage(srvCfg.DatabaseDsn, srvCfg.Restore, srvCfg.Logger, ctx)
 	} else {
 		srvCfg.Repo = storage.NewPersistenceRepo(
-			storage.NewFileStorage(srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, logger, ctx),
+			storage.NewFileStorage(ctx, srvCfg.StoreFile, srvCfg.StoreInterval, srvCfg.Restore, logger),
 		)
 	}
 
