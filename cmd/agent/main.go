@@ -18,6 +18,8 @@ import (
 //	@Title			Metrics collection agrnt
 //	@Description	Агент для сбора и отправки метрик.
 //	@Version		1.0
+//  Для сборки сервера с заполнением соответствующих переменных необходимо использовать флаги линковщика
+//    go build -ldflags "-X main.buildVersion=v0.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d')' -X 'main.buildCommit=$(git rev-parse HEAD)'"
 
 var (
 	buildVersion = "N/A"
