@@ -156,10 +156,8 @@ func TestService(t *testing.T) {
 	}
 
 	cfg := &config.ServerConfig{
-		ServerCmd: config.ServerCmd{
-			Address: "localhost:8080",
-		},
-		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+		Address: "localhost:8080",
+		Repo:    storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {
@@ -319,9 +317,7 @@ jEGCtU5QakUL+EdUfTAcyuoi1P4t+jqv5c0SHD6dPem+WnjYzYCw77oSlTE=
 	prv, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
 
 	cfg := &config.ServerConfig{
-		ServerCmd: config.ServerCmd{
-			Address: "localhost:8080",
-		},
+		Address:    "localhost:8080",
 		PrivateKey: prv,
 		Repo:       storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
@@ -391,10 +387,8 @@ func Test_metricStore(t *testing.T) {
 	}
 
 	cfg := &config.ServerConfig{
-		ServerCmd: config.ServerCmd{
-			Address: "localhost:8080",
-		},
-		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+		Address: "localhost:8080",
+		Repo:    storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {
@@ -487,10 +481,8 @@ func Test_metricJSONLoad(t *testing.T) {
 	}
 
 	cfg := &config.ServerConfig{
-		ServerCmd: config.ServerCmd{
-			Address: "localhost:8080",
-		},
-		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+		Address: "localhost:8080",
+		Repo:    storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
 	for _, tt := range tests {

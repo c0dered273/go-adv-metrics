@@ -72,11 +72,9 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			defer srv.Close()
 
 			cfg := &config.AgentConfig{
-				AgentCmd: config.AgentCmd{
-					Address:        srv.URL,
-					ReportInterval: 10 * time.Second,
-					PollInterval:   2 * time.Second,
-				},
+				Address:        srv.URL,
+				ReportInterval: 10 * time.Second,
+				PollInterval:   2 * time.Second,
 			}
 
 			upd := metric.ConcatSources([]metric.UpdatableMetric{tt.metric})
