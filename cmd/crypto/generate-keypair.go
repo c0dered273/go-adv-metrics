@@ -17,6 +17,10 @@ func main() {
 	}
 
 	privateFile, err := os.OpenFile("id_rsa", os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+
 	err = writePrivateKey(privateFile, privateKey)
 	if err != nil {
 		log.Fatal().Err(err).Send()
@@ -28,6 +32,9 @@ func main() {
 	}
 
 	publicFile, err := os.OpenFile("id_rsa.pub", os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
 	err = writePublicKey(publicFile, publicKey)
 	if err != nil {
 		log.Fatal().Err(err).Send()
