@@ -5,49 +5,71 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
-type AgentCmd struct {
-	Address           string
-	ReportInterval    time.Duration
-	PollInterval      time.Duration
-	Key               string
-	PublicKeyFileName string
-}
-
-// getAgentConfig получает конфигурацией агента из командной строки или переменных окружения.
-// Параметры из переменных окружения имеют приоритет.
-// ADDRESS - адрес сервера метрик
-// REPORT_INTERVAL - интервал отправки обновлений на сервер
-// POLL_INTERVAL - интервал обновления метрик
-// KEY - ключ для подписи метрик должен быть одинаковым на сервере и агенте
-// CRYPTO_KEY - имя файла с публичным RSA ключом, должен соответствовать приватному ключу сервера
-func getAgentConfig() AgentCmd {
-	agentFlag := AgentCmd{}
-	pflag.StringVarP(&agentFlag.Address, "address", "a", Address, "Server address:port")
-	pflag.DurationVarP(&agentFlag.ReportInterval, "report_interval", "r", ReportInterval, "Send metrics to server interval")
-	pflag.DurationVarP(&agentFlag.PollInterval, "poll_interval", "p", PollInterval, "Collect metrics interval")
-	pflag.StringVarP(&agentFlag.Key, "key", "k", "", "Metric sign hash key")
-	pflag.StringVar(&agentFlag.PublicKeyFileName, "crypto-key", "", "Public RSA key")
-	pflag.Parse()
-
-	return AgentCmd{
-		Address:           lookupEnvOrString("ADDRESS", agentFlag.Address),
-		ReportInterval:    lookupEnvOrDuration("REPORT_INTERVAL", agentFlag.ReportInterval),
-		PollInterval:      lookupEnvOrDuration("POLL_INTERVAL", agentFlag.PollInterval),
-		Key:               lookupEnvOrString("KEY", agentFlag.Key),
-		PublicKeyFileName: lookupEnvOrString("CRYPTO_KEY", agentFlag.PublicKeyFileName),
+var (
+	// Параметры из переменных окружения имеют приоритет.
+	// ADDRESS - адрес сервера метрик
+	// REPORT_INTERVAL - интервал отправки обновлений на сервер
+	// POLL_INTERVAL - интервал обновления метрик
+	// KEY - ключ для подписи метрик должен быть одинаковым на сервере и агенте
+	// CRYPTO_KEY - имя файла с публичным RSA ключом, должен соответствовать приватному ключу сервера
+	// CONFIG - имя файла конфигурации в формате json
+	envVarsAgent = []string{
+		"ADDRESS",
+		"REPORT_INTERVAL",
+		"POLL_INTERVAL",
+		"KEY",
+		"CRYPTO_KEY",
+		"CONFIG",
 	}
-}
+)
 
 type AgentConfig struct {
-	AgentCmd
-	PublicKey *rsa.PublicKey
-	Logger    zerolog.Logger
+	Address           string        `mapstructure:"address"`
+	ReportInterval    time.Duration `mapstructure:"report_interval"`
+	PollInterval      time.Duration `mapstructure:"poll_interval"`
+	Key               string        `mapstructure:"key"`
+	PublicKeyFileName string        `mapstructure:"crypto_key"`
+	ConfigFileName    string        `mapstructure:"config"`
+	PublicKey         *rsa.PublicKey
+	Logger            zerolog.Logger
+}
+
+func agentSetDefaults() {
+	replacer := strings.NewReplacer("-", "_")
+	viper.SetEnvKeyReplacer(replacer)
+
+	viper.RegisterAlias("crypto-key", "crypto_key")
+
+	viper.SetDefault("address", Address)
+	viper.SetDefault("report_interval", ReportInterval)
+	viper.SetDefault("poll_interval", PollInterval)
+}
+
+func agentGetPFlags() {
+	pflag.StringP("address", "a", viper.GetString("address"), "Server address:port")
+	pflag.DurationP("report_interval", "r", viper.GetDuration("report_interval"), "Send metrics to server interval")
+	pflag.DurationP("poll_interval", "p", viper.GetDuration("poll_interval"), "Collect metrics interval")
+	pflag.StringP("key", "k", "", "Metric sign hash key")
+	pflag.String("crypto_key", "", "Public RSA key")
+	pflag.StringP("config", "c", "", "Config file name")
+	pflag.Parse()
+}
+
+func newAgentConfig() (*AgentConfig, error) {
+	cfg := &AgentConfig{}
+	err := viper.Unmarshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func getRSAPublicKey(fileName string) (*rsa.PublicKey, error) {
@@ -66,11 +88,32 @@ func getRSAPublicKey(fileName string) (*rsa.PublicKey, error) {
 }
 
 // NewAgentConfig отдает готовую структуру с необходимыми настройками для агента
-func NewAgentConfig(logger zerolog.Logger) *AgentConfig {
-	agentCfg := AgentConfig{
-		AgentCmd: getAgentConfig(),
-		Logger:   logger,
+func NewAgentConfig(logger zerolog.Logger) (*AgentConfig, error) {
+	agentSetDefaults()
+
+	agentGetPFlags()
+
+	err := bindConfigFile("config")
+	if err != nil {
+		return nil, err
 	}
+
+	err = bindPFlags()
+	if err != nil {
+		return nil, err
+	}
+
+	err = bindEnvVars(envVarsAgent)
+	if err != nil {
+		return nil, err
+	}
+
+	agentCfg, err := newAgentConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	agentCfg.Logger = logger
 
 	if !hasSchema(agentCfg.Address) {
 		agentCfg.Address = "http://" + agentCfg.Address
@@ -84,5 +127,5 @@ func NewAgentConfig(logger zerolog.Logger) *AgentConfig {
 		agentCfg.PublicKey = pubKey
 	}
 
-	return &agentCfg
+	return agentCfg, nil
 }

@@ -37,7 +37,11 @@ func main() {
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	logger := server.NewServerLogger()
-	cfg := config.NewServerConfig(serverCtx, logger, config.GetServerConfig())
+	cfg, err := config.NewServerConfig(serverCtx, logger)
+	if err != nil {
+		log.Fatal().Err(err).Msg("agent: failed to get config")
+	}
+
 	httpServer := &http.Server{
 		Addr:              cfg.Address,
 		ReadHeaderTimeout: 30 * time.Second,
@@ -65,7 +69,7 @@ func main() {
 	}()
 
 	logger.Info().Msgf("Metrics server started at %v", httpServer.Addr)
-	err := httpServer.ListenAndServe()
+	err = httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal().Err(err)
 	}

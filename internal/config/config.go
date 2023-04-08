@@ -1,12 +1,11 @@
 package config
 
 import (
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // Настройки агента по умолчанию.
@@ -27,33 +26,60 @@ const (
 	PollInterval = 2 * time.Second
 )
 
-func lookupEnvOrString(key string, defaultVal string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
+var (
+	// Тип файла конфигурации
+	configFileType = "json"
+	configFilePath = []string{
+		".",
 	}
-	return defaultVal
+)
+
+func bindPFlags() error {
+	err := viper.BindPFlags(pflag.CommandLine)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func lookupEnvOrDuration(key string, defaultVal time.Duration) time.Duration {
-	if val, ok := os.LookupEnv(key); ok {
-		durationVal, err := time.ParseDuration(val)
-		if err != nil {
-			log.Fatal().Msgf("config: failed to parse duration: %v", val)
+func bindConfigFile(fileNameFlag string) error {
+	cfgFileFlag := pflag.Lookup(fileNameFlag)
+	if cfgFileFlag != nil {
+		cfgFileName := cfgFileFlag.Value.String()
+		if len(cfgFileName) > 0 {
+			err := readConfigFile(cfgFileName)
+			if err != nil {
+				return err
+			}
 		}
-		return durationVal
 	}
-	return defaultVal
+	return nil
 }
 
-func lookupEnvOrBool(key string, defaultVal bool) bool {
-	if val, ok := os.LookupEnv(key); ok {
-		parseBool, err := strconv.ParseBool(val)
-		if err != nil {
-			log.Fatal().Msgf("config: failed to parse bool: %v", val)
-		}
-		return parseBool
+func readConfigFile(filename string) error {
+	viper.SetConfigName(filename)
+	viper.SetConfigType(configFileType)
+	for _, path := range configFilePath {
+		viper.AddConfigPath(path)
 	}
-	return defaultVal
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			return err
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func bindEnvVars(envVars []string) error {
+	for _, env := range envVars {
+		err := viper.BindEnv(env)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func hasSchema(addr string) bool {

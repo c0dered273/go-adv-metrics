@@ -134,6 +134,7 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	if err != nil {
 		return err
 	}
+
 	if response.IsSuccess() {
 		ma.Config.Logger.
 			Info().
@@ -152,17 +153,16 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	return nil
 }
 
-func encryptBody(metrics []metric.UpdatableMetric, key *rsa.PublicKey) (any, error) {
+func encryptBody(metrics []metric.UpdatableMetric, key *rsa.PublicKey) ([]byte, error) {
+	m, err := json.Marshal(metrics)
+	if err != nil {
+		return nil, err
+	}
 	if key != nil {
-		m, err := json.Marshal(metrics)
-		if err != nil {
-			return nil, err
-		}
-
 		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, m, nil)
 	}
 
-	return metrics, nil
+	return m, nil
 }
 
 // SendAllMetricsContinuously метод инкапсулирует периодическое обновление и отправку метрик

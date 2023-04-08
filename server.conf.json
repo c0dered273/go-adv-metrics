@@ -1,0 +1,8 @@
+{
+  "address": "localhost:8080",
+  "restore": true,
+  "store_interval": "1s",
+  "store_file": "/tmp/devops-metrics.db",
+  "database_dsn": "postgres://postgres:postgres@localhost:5432/goadv",
+  "crypto_key": "id_rsa"
+}
