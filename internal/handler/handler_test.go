@@ -27,12 +27,28 @@ func JSONtoByte(s string) []byte {
 }
 
 func TestService(t *testing.T) {
+	cfg := &config.ServerConfig{
+		ServerInParams: &config.ServerInParams{
+			Address: "localhost:8080",
+		},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+	}
+
+	cfgWithHash := &config.ServerConfig{
+		ServerInParams: &config.ServerInParams{
+			Address: "localhost:8080",
+			Key:     "some_hash_key",
+		},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+	}
+
 	type want struct {
 		code  int
 		value string
 	}
 	tests := []struct {
 		name   string
+		srvCfg *config.ServerConfig
 		method string
 		url    string
 		body   []byte
@@ -40,6 +56,7 @@ func TestService(t *testing.T) {
 	}{
 		{
 			name:   "should response 200 when valid request #1",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/gauge/Alloc/31337.1",
 			want: want{
@@ -48,6 +65,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 200 when valid request #2",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/counter/PollCounter/123",
 			want: want{
@@ -56,6 +74,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should return value when valid request after POST",
+			srvCfg: cfg,
 			method: "GET",
 			url:    "http://localhost:8080/value/gauge/Alloc",
 			want: want{
@@ -65,6 +84,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should return html with all metrics",
+			srvCfg: cfg,
 			method: "GET",
 			url:    "http://localhost:8080/",
 			want: want{
@@ -73,6 +93,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 405 when invalid method",
+			srvCfg: cfg,
 			method: "GET",
 			url:    "http://localhost:8080/update/gauge/Alloc/31337",
 			want: want{
@@ -81,6 +102,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 400 when not a number at metric value",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/gauge/Alloc/invalid",
 			want: want{
@@ -89,6 +111,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 501 when unknown metric type",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/unknown/Alloc/31337",
 			want: want{
@@ -97,6 +120,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 404 when invalid path #1",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/gauge/Alloc",
 			want: want{
@@ -105,6 +129,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 404 when invalid path #2",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/gauge",
 			want: want{
@@ -113,6 +138,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 404 when invalid path #3",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update",
 			want: want{
@@ -121,6 +147,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 404 when unknown value",
+			srvCfg: cfg,
 			method: "GET",
 			url:    "http://localhost:8080/value/unknown/metric",
 			want: want{
@@ -129,6 +156,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 200 when valid gauge",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/",
 			body: JSONtoByte(`{
@@ -142,6 +170,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:   "should response 200 when valid counter",
+			srvCfg: cfg,
 			method: "POST",
 			url:    "http://localhost:8080/update/",
 			body: JSONtoByte(`{
@@ -153,13 +182,116 @@ func TestService(t *testing.T) {
 				code: 200,
 			},
 		},
-	}
-
-	cfg := &config.ServerConfig{
-		ServerInParams: &config.ServerInParams{
-			Address: "localhost:8080",
+		{
+			name:   "should response 400 when invalid json",
+			srvCfg: cfg,
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body:   []byte("invalid_json"),
+			want: want{
+				code: 400,
+			},
 		},
-		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+		{
+			name:   "should response 200 when valid hash key",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body: JSONtoByte(`{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "8b95cb2c3c115495793dfae27498b432bc6242f22d62b51fe5148e6224a075d6",
+									"type": "gauge"
+									}`),
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:   "should response 400 when invalid hash key",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body: JSONtoByte(`{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "152246535903a8764b8b96305f9b4c7357da8c6d78d60cd81b4930781b5f3525",
+									"type": "gauge"
+									}`),
+			want: want{
+				code: 400,
+			},
+		},
+		{
+			name:   "should response 500 when invalid hash key format",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/update/",
+			body: JSONtoByte(`{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "invalid_hash_key",
+									"type": "gauge"
+									}`),
+			want: want{
+				code: 500,
+			},
+		},
+		{
+			name:   "should response 400 when invalid json array",
+			srvCfg: cfg,
+			method: "POST",
+			url:    "http://localhost:8080/updates/",
+			body:   []byte("invalid_json"),
+			want: want{
+				code: 400,
+			},
+		},
+		{
+			name:   "should response 200 when save array with valid hash key",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/updates/",
+			body: JSONtoByte(`[{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "8b95cb2c3c115495793dfae27498b432bc6242f22d62b51fe5148e6224a075d6",
+									"type": "gauge"
+									}]`),
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:   "should response 400 when save array with invalid hash key",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/updates/",
+			body: JSONtoByte(`[{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "152246535903a8764b8b96305f9b4c7357da8c6d78d60cd81b4930781b5f3525",
+									"type": "gauge"
+									}]`),
+			want: want{
+				code: 400,
+			},
+		},
+		{
+			name:   "should response 500 when save array with invalid hash key format",
+			srvCfg: cfgWithHash,
+			method: "POST",
+			url:    "http://localhost:8080/updates/",
+			body: JSONtoByte(`[{
+									"id": "Alloc",
+									"value": 1552512,
+									"hash": "invalid_hash_format",
+									"type": "gauge"
+									}]`),
+			want: want{
+				code: 500,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -175,7 +307,7 @@ func TestService(t *testing.T) {
 			}
 
 			writer := httptest.NewRecorder()
-			h := Service(cfg)
+			h := Service(tt.srvCfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()
