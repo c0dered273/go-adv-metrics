@@ -37,7 +37,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	logger := agent.NewAgentLogger()
-	cfg := config.NewAgentConfig(logger)
+	cfg, err := config.NewAgentConfig(logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("agent: configuration error")
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(2)

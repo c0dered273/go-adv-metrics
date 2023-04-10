@@ -1,12 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mitchellh/mapstructure"
 )
 
 // Настройки агента по умолчанию.
@@ -27,33 +27,82 @@ const (
 	PollInterval = 2 * time.Second
 )
 
-func lookupEnvOrString(key string, defaultVal string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
+type Params map[string]any
+
+// getFileCfg получает конфигурацию из json файла
+func getFileCfg(cfg Params) (Params, error) {
+	fileCfg := make(map[string]any)
+	var err error
+
+	if cfgFileName, ok := cfg["config"]; ok {
+		if fileName := cfgFileName.(string); len(fileName) > 0 {
+			fileCfg, err = readFileCfg(fileName)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	return defaultVal
+	return fileCfg, nil
 }
 
-func lookupEnvOrDuration(key string, defaultVal time.Duration) time.Duration {
-	if val, ok := os.LookupEnv(key); ok {
-		durationVal, err := time.ParseDuration(val)
-		if err != nil {
-			log.Fatal().Msgf("config: failed to parse duration: %v", val)
-		}
-		return durationVal
+func readFileCfg(fileName string) (Params, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
 	}
-	return defaultVal
+	decoder := json.NewDecoder(file)
+
+	params := make(map[string]any)
+	err = decoder.Decode(&params)
+	if err != nil {
+		return nil, err
+	}
+
+	return params, nil
 }
 
-func lookupEnvOrBool(key string, defaultVal bool) bool {
-	if val, ok := os.LookupEnv(key); ok {
-		parseBool, err := strconv.ParseBool(val)
-		if err != nil {
-			log.Fatal().Msgf("config: failed to parse bool: %v", val)
+// getEnvCfg получает конфигурацию из переменных окружений
+func getEnvCfg(envVars []string) Params {
+	params := make(map[string]any)
+	for _, env := range envVars {
+		if val, ok := os.LookupEnv(env); ok {
+			params[strings.ToLower(env)] = val
 		}
-		return parseBool
 	}
-	return defaultVal
+
+	return params
+}
+
+func merge(params ...Params) Params {
+	output := make(map[string]any)
+	for _, p := range params {
+		for k, v := range p {
+			output[k] = v
+		}
+	}
+	return output
+}
+
+func bindParams(params Params, output any) error {
+	c := &mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+		WeaklyTypedInput: true,
+		Metadata:         nil,
+		Result:           output,
+	}
+	decoder, err := mapstructure.NewDecoder(c)
+	if err != nil {
+		return err
+	}
+
+	err = decoder.Decode(params)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func hasSchema(addr string) bool {
