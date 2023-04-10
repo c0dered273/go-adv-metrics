@@ -19,7 +19,7 @@ const (
 	// StoreFile Путь к файлу хранения метрик
 	StoreFile = "/tmp/devops-metrics-db.json"
 	// Restore Флаг показывает сохранять ли метрики с прошлого сеанса или очистить БД
-	Restore = true
+	Restore = false
 
 	// ReportInterval Интервал отправки обновлений на сервер
 	ReportInterval = 10 * time.Second
