@@ -17,7 +17,7 @@ const (
 	// StoreInterval Интервал сброса метрик на диск
 	StoreInterval = 300 * time.Second
 	// StoreFile Путь к файлу хранения метрик
-	StoreFile = "devops-metrics-db.json"
+	StoreFile = "/tmp/devops-metrics-db"
 	// Restore Флаг показывает сохранять ли метрики с прошлого сеанса или очистить БД
 	Restore = true
 
