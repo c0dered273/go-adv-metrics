@@ -76,6 +76,10 @@ func getServerPFlag() Params {
 				name = "database_dsn"
 			}
 
+			if name == "filename" {
+				name = "store_file"
+			}
+
 			params[name] = flag.Value.String()
 		}
 	})
