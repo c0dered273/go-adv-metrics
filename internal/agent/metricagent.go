@@ -3,6 +3,10 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -17,7 +21,7 @@ const (
 	retryCount       = 3
 	retryWaitTime    = 5 * time.Second
 	retryMaxWaitTime = 15 * time.Second
-	BufferLen        = 10
+	BufferLen        = 3
 )
 
 type metricUpdate struct {
@@ -117,10 +121,15 @@ func (ma *MetricAgent) send(metricUpdate *metricUpdate) {
 }
 
 func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
+	body, err := encryptBody(metrics, ma.Config.PublicKey)
+	if err != nil {
+		return err
+	}
+
 	response, err := ma.client.R().
 		EnableTrace().
 		SetHeader("Content-Type", "application/json").
-		SetBody(metrics).
+		SetBody(body).
 		Post(ma.Config.Address + updateEndpoint)
 	if err != nil {
 		return err
@@ -141,6 +150,19 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 			Msg("agent: metric update failed")
 	}
 	return nil
+}
+
+func encryptBody(metrics []metric.UpdatableMetric, key *rsa.PublicKey) (any, error) {
+	if key != nil {
+		m, err := json.Marshal(metrics)
+		if err != nil {
+			return nil, err
+		}
+
+		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, m, nil)
+	}
+
+	return metrics, nil
 }
 
 // SendAllMetricsContinuously метод инкапсулирует периодическое обновление и отправку метрик
