@@ -13,14 +13,14 @@ func TrustedSubnet(cfg *config.ServerConfig, logger zerolog.Logger) func(next ht
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			if cfg.TrustedSubnet != nil {
-				realIp := net.ParseIP(r.RemoteAddr)
-				if realIp == nil {
+				realIP := net.ParseIP(r.RemoteAddr)
+				if realIP == nil {
 					logger.Error().Msg("trusted_subnet_middleware: failed to parse real ip")
 					http.Error(w, "Bad request", http.StatusBadRequest)
 					return
 				}
 
-				if !cfg.TrustedSubnet.Contains(realIp) {
+				if !cfg.TrustedSubnet.Contains(realIP) {
 					logger.Error().Msg("trusted_subnet_middleware: request ip does not belongs to trusted subnet")
 					http.Error(w, "Forbidden", http.StatusForbidden)
 					return
