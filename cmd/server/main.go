@@ -45,7 +45,7 @@ func main() {
 	httpServer := &http.Server{
 		Addr:              cfg.Address,
 		ReadHeaderTimeout: 30 * time.Second,
-		Handler:           handler.Service(cfg),
+		Handler:           handler.Service(cfg, logger),
 	}
 
 	go func() {

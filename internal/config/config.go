@@ -87,6 +87,7 @@ func bindParams(params Params, output any) error {
 	c := &mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToIPNetHookFunc(),
 		),
 		WeaklyTypedInput: true,
 		Metadata:         nil,

@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,6 +29,8 @@ func JSONtoByte(s string) []byte {
 }
 
 func TestService(t *testing.T) {
+	_, trustedSubnet, _ := net.ParseCIDR("10.0.0.0/24")
+
 	cfg := &config.ServerConfig{
 		ServerInParams: &config.ServerInParams{
 			Address: "localhost:8080",
@@ -42,17 +46,26 @@ func TestService(t *testing.T) {
 		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
+	cfgWithTrustedSubnet := &config.ServerConfig{
+		ServerInParams: &config.ServerInParams{
+			Address:       "localhost:8080",
+			TrustedSubnet: trustedSubnet,
+		},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+	}
+
 	type want struct {
 		code  int
 		value string
 	}
 	tests := []struct {
-		name   string
-		srvCfg *config.ServerConfig
-		method string
-		url    string
-		body   []byte
-		want   want
+		name    string
+		srvCfg  *config.ServerConfig
+		method  string
+		url     string
+		headers map[string]string
+		body    []byte
+		want    want
 	}{
 		{
 			name:   "should response 200 when valid request #1",
@@ -292,6 +305,36 @@ func TestService(t *testing.T) {
 				code: 500,
 			},
 		},
+		{
+			name:    "should response 200 when valid ping request with trusted ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "10.0.0.11"},
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:    "should response 403 when valid ping request with untrusted ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "10.0.22.11"},
+			want: want{
+				code: 403,
+			},
+		},
+		{
+			name:    "should response 400 when valid ping request with invalid ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "FAKE_IP"},
+			want: want{
+				code: 400,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -306,8 +349,14 @@ func TestService(t *testing.T) {
 				request = httptest.NewRequest(tt.method, tt.url, nil)
 			}
 
+			if len(tt.headers) != 0 {
+				for k, v := range tt.headers {
+					request.Header.Set(k, v)
+				}
+			}
+
 			writer := httptest.NewRecorder()
-			h := Service(tt.srvCfg)
+			h := Service(tt.srvCfg, log.Logger)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()
@@ -463,7 +512,7 @@ jEGCtU5QakUL+EdUfTAcyuoi1P4t+jqv5c0SHD6dPem+WnjYzYCw77oSlTE=
 			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
 			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
-			h := Service(cfg)
+			h := Service(cfg, log.Logger)
 			h.ServeHTTP(writer, storeReq)
 			h.ServeHTTP(writer, loadReq)
 			res := writer.Result()
@@ -535,7 +584,7 @@ func Test_metricStore(t *testing.T) {
 			request2 := httptest.NewRequest(tt.method, tt.url2, nil)
 			request3 := httptest.NewRequest("GET", tt.url3, nil)
 			writer := httptest.NewRecorder()
-			h := Service(cfg)
+			h := Service(cfg, log.Logger)
 			h.ServeHTTP(writer, request1)
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)
@@ -630,7 +679,7 @@ func Test_metricJSONLoad(t *testing.T) {
 			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
 			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
-			h := Service(cfg)
+			h := Service(cfg, log.Logger)
 			h.ServeHTTP(writer, storeReq)
 			h.ServeHTTP(writer, loadReq)
 			res := writer.Result()

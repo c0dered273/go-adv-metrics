@@ -7,6 +7,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/json"
+	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -129,6 +131,7 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	response, err := ma.client.R().
 		EnableTrace().
 		SetHeader("Content-Type", "application/json").
+		SetHeader("X-Real-IP", getPreferredHostIP(ma.Config.Address)).
 		SetBody(body).
 		Post(ma.Config.Address + updateEndpoint)
 	if err != nil {
@@ -163,6 +166,43 @@ func encryptBody(metrics []metric.UpdatableMetric, key *rsa.PublicKey) (any, err
 	}
 
 	return metrics, nil
+}
+
+func getPreferredHostIP(target string) string {
+	targetURL, err := url.Parse(target)
+	if err != nil {
+		return ""
+	}
+
+	targetIPs, err := net.LookupIP(targetURL.Hostname())
+	if err != nil {
+		return ""
+	}
+
+	var targetIP net.IP
+	for _, i := range targetIPs {
+		if ip4 := i.To4(); ip4 != nil {
+			targetIP = ip4
+			break
+		}
+	}
+
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, addr := range addresses {
+		if ipNet, ok := addr.(*net.IPNet); ok {
+			if ipNet.Contains(targetIP) {
+				if ipNet.IP.To4() != nil {
+					return ipNet.IP.String()
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 // SendAllMetricsContinuously метод инкапсулирует периодическое обновление и отправку метрик

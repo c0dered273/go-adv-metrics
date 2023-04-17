@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ var (
 		"KEY",
 		"CRYPTO_KEY",
 		"CONFIG",
+		"TRUSTED_SUBNET",
 	}
 )
 
@@ -43,6 +45,7 @@ type ServerConfigFileParams struct {
 	StoreFile          string        `json:"store_file"`
 	Restore            bool          `json:"restore"`
 	PrivateKeyFileName string        `json:"crypto_key"`
+	TrustedSubnet      string        `json:"trusted_subnet"`
 }
 
 type ServerInParams struct {
@@ -53,6 +56,7 @@ type ServerInParams struct {
 	Restore            bool          `mapstructure:"restore"`
 	Key                string        `mapstructure:"key"`
 	PrivateKeyFileName string        `mapstructure:"crypto_key"`
+	TrustedSubnet      *net.IPNet    `mapstructure:"trusted_subnet"`
 }
 
 // getServerPFlag получает конфигурацией сервера из командной строки.
@@ -65,6 +69,7 @@ func getServerPFlag() Params {
 	pflag.BoolP("restore", "r", Restore, "Is restore metrics from disk")
 	pflag.String("crypto-key", "", "Private RSA key")
 	pflag.StringP("config", "c", "", "Имя файла конфигурации")
+	pflag.StringP("trusted_subnet", "t", "", "Доверенная подсеть")
 	pflag.Parse()
 
 	params := make(map[string]any)
