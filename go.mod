@@ -1,6 +1,6 @@
 module github.com/c0dered273/go-adv-metrics
 
-go 1.19
+go 1.20
 
 require (
 	github.com/MakeNowJust/enumcase v0.0.0-20190823025603-574e2b6fa0e1
