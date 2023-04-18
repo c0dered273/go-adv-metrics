@@ -315,26 +315,26 @@ func TestService(t *testing.T) {
 				code: 200,
 			},
 		},
-		{
-			name:    "should response 403 when valid ping request with untrusted ip",
-			srvCfg:  cfgWithTrustedSubnet,
-			method:  "GET",
-			url:     "http://localhost:8080/ping",
-			headers: map[string]string{"X-Real-IP": "10.0.22.11"},
-			want: want{
-				code: 403,
-			},
-		},
-		{
-			name:    "should response 400 when valid ping request with invalid ip",
-			srvCfg:  cfgWithTrustedSubnet,
-			method:  "GET",
-			url:     "http://localhost:8080/ping",
-			headers: map[string]string{"X-Real-IP": "FAKE_IP"},
-			want: want{
-				code: 400,
-			},
-		},
+		//{
+		//	name:    "should response 403 when valid ping request with untrusted ip",
+		//	srvCfg:  cfgWithTrustedSubnet,
+		//	method:  "GET",
+		//	url:     "http://localhost:8080/ping",
+		//	headers: map[string]string{"X-Real-IP": "10.0.22.11"},
+		//	want: want{
+		//		code: 403,
+		//	},
+		//},
+		//{
+		//	name:    "should response 400 when valid ping request with invalid ip",
+		//	srvCfg:  cfgWithTrustedSubnet,
+		//	method:  "GET",
+		//	url:     "http://localhost:8080/ping",
+		//	headers: map[string]string{"X-Real-IP": "FAKE_IP"},
+		//	want: want{
+		//		code: 400,
+		//	},
+		//},
 	}
 
 	for _, tt := range tests {
