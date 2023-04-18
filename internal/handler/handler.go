@@ -324,10 +324,10 @@ func Service(config *config.ServerConfig, logger zerolog.Logger) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware2.TrustedSubnet(config, logger))
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.Compress(5))
+	r.Use(middleware2.TrustedSubnet(config, logger))
 	r.Use(middleware2.RSADecrypt(config.PrivateKey))
 
 	r.Mount("/debug", middleware.Profiler())
