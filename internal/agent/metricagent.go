@@ -131,7 +131,7 @@ func (ma *MetricAgent) postMetric(metrics []metric.UpdatableMetric) error {
 	response, err := ma.client.R().
 		EnableTrace().
 		SetHeader("Content-Type", "application/json").
-		SetHeader("X-Real-IP", getPreferredHostIP(ma.Config.Address)).
+		//SetHeader("X-Real-IP", getPreferredHostIP(ma.Config.Address)).
 		SetBody(body).
 		Post(ma.Config.Address + updateEndpoint)
 	if err != nil {
