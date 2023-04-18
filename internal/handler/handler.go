@@ -212,13 +212,6 @@ func StoreAllMetricsFromJSONHandler(c *config.ServerConfig) http.HandlerFunc {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, err = w.Write([]byte("{}"))
-		if err != nil {
-			return
-		}
 	}
 }
 
