@@ -51,6 +51,10 @@ func main() {
 	}
 
 	listen, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
 	grpcServer, err := server.NewGRPCServer(cfg)
 	if err != nil {
 		log.Fatal().Err(err)

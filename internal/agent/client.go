@@ -41,7 +41,7 @@ func NewGRPCClient(ctx context.Context, cfg *config.AgentConfig) (Client, error)
 	}
 	tlsCredentials := credentials.NewTLS(tlsConfig)
 
-	targetUrl, err := url.Parse(cfg.Address)
+	targetURL, err := url.Parse(cfg.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +50,17 @@ func NewGRPCClient(ctx context.Context, cfg *config.AgentConfig) (Client, error)
 		MinConnectTimeout: connTimeout,
 	}
 	conn, err := grpc.Dial(
-		targetUrl.Host,
+		targetURL.Host,
 		grpc.WithConnectParams(connectParams),
 		grpc.WithTransportCredentials(tlsCredentials),
 		grpc.WithChainUnaryInterceptor(
 			logging.UnaryClientInterceptor(interceptors.InterceptorLogger(cfg.Logger), interceptors.GetLoggerOpts()...),
 		),
 	)
+	if err != nil {
+		return nil, err
+	}
+
 	grpcClient := service.NewMetricsServiceClient(conn)
 
 	return &GRPCClient{

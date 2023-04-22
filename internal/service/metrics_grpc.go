@@ -184,7 +184,7 @@ func validateMetric(m metric.Metric, cfg *config.ServerConfig) error {
 		return status.Errorf(codes.Internal, "Internal error")
 	}
 	if !ok {
-		msg := fmt.Sprint("metric_service: invalid metric hash")
+		msg := "metric_service: invalid metric hash"
 		cfg.Logger.Error().Err(err).Msg(msg)
 		return status.Errorf(codes.InvalidArgument, msg)
 	}
