@@ -59,7 +59,7 @@ func (ms *MetricsService) GetAll(ctx context.Context, empty *emptypb.Empty) (*mo
 	}
 
 	pbMetrics := make([]*model.Metric, len(m))
-	err = mapSliceWithSerialization(toSliceOfPointers(m), pbMetrics)
+	err = MapSliceWithSerialization(ToSliceOfPointers(m), pbMetrics)
 	if err != nil {
 		ms.Config.Logger.Error().Err(err).Send()
 		return nil, status.Errorf(codes.Internal, "Internal error")
@@ -100,7 +100,7 @@ func (ms *MetricsService) SaveAll(ctx context.Context, in *model.Metrics) (*mode
 	pbMetrics := in.GetMetrics()
 
 	m := make([]*metric.Metric, len(pbMetrics))
-	err := mapSliceWithSerialization(pbMetrics, m)
+	err := MapSliceWithSerialization(pbMetrics, m)
 	if err != nil {
 		ms.Config.Logger.Error().Err(err).Send()
 		return nil, status.Errorf(codes.Internal, "Internal error")
@@ -124,7 +124,7 @@ func (ms *MetricsService) SaveAll(ctx context.Context, in *model.Metrics) (*mode
 	return &response, nil
 }
 
-func mapSliceWithSerialization[T any, E any](in []*T, out []*E) error {
+func MapSliceWithSerialization[T any, E any](in []*T, out []*E) error {
 	if len(in) != len(out) {
 		return errors.New("mapping error: slices must have equal length")
 	}
@@ -155,7 +155,7 @@ func mapDtoWithSerialization[T any, E any](in T, out *E) error {
 	return nil
 }
 
-func toSliceOfPointers[T any](in []T) []*T {
+func ToSliceOfPointers[T any](in []T) []*T {
 	out := make([]*T, len(in))
 	for i := range in {
 		out[i] = &in[i]

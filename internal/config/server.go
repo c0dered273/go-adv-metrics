@@ -76,13 +76,13 @@ type ServerInParams struct {
 
 // getServerPFlag получает конфигурацией сервера из командной строки.
 func getServerPFlag() Params {
-	pflag.StringP("address", "a", Address, "Server address:port")
-	pflag.StringP("grpc_address", "g", GRPCAddress, "gRPC Server address:port")
+	pflag.StringP("address", "a", "", "Server address:port")
+	pflag.StringP("grpc_address", "g", "", "gRPC Server address:port")
 	pflag.StringP("databaseDsn", "d", "", "Database url")
-	pflag.DurationP("store_interval", "i", StoreInterval, "Writing metrics to disk interval")
-	pflag.StringP("filename", "f", StoreFile, "Storage filename")
+	pflag.StringP("store_interval", "i", "", "Writing metrics to disk interval")
+	pflag.StringP("filename", "f", "", "Storage filename")
 	pflag.StringP("key", "k", "", "Metric sign hash key")
-	pflag.BoolP("restore", "r", Restore, "Is restore metrics from disk")
+	pflag.StringP("restore", "r", "", "Is restore metrics from disk")
 	pflag.String("crypto-key", "", "Private RSA key")
 	pflag.StringP("config", "c", "", "Config file name")
 	pflag.StringP("trusted_subnet", "t", "", "Trusted subnet")
@@ -112,6 +112,16 @@ func getServerPFlag() Params {
 	return params
 }
 
+func getSrvDefaults() Params {
+	return map[string]any{
+		"address":        Address,
+		"grpc_address":   GRPCAddress,
+		"store_interval": StoreInterval,
+		"restore":        Restore,
+		"store_file":     StoreFile,
+	}
+}
+
 type ServerConfig struct {
 	*ServerInParams
 	Logger       zerolog.Logger
@@ -137,16 +147,17 @@ func getRSAPrivateKey(fileName string) (*rsa.PrivateKey, error) {
 
 // NewServerConfig возвращает структуру с необходимыми настройками сервера
 func NewServerConfig(ctx context.Context, logger zerolog.Logger) (*ServerConfig, error) {
+	defaults := getSrvDefaults()
 	pFlagCfg := getServerPFlag()
 	envCfg := getEnvCfg(serverEnvVars)
 
-	mergedCfg := merge(pFlagCfg, envCfg)
+	mergedCfg := merge(defaults, pFlagCfg, envCfg)
 	fileCfg, err := getFileCfg(mergedCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	mergedCfg = merge(fileCfg, pFlagCfg, envCfg)
+	mergedCfg = merge(defaults, fileCfg, pFlagCfg, envCfg)
 	serverParams := &ServerInParams{}
 	err = bindParams(mergedCfg, serverParams)
 	if err != nil {

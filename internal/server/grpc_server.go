@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func NewServerCredentials(cfg *config.ServerConfig) (credentials.TransportCredentials, error) {
+func newServerCredentials(cfg *config.ServerConfig) (credentials.TransportCredentials, error) {
 	caPem, err := os.ReadFile(cfg.CACertFile)
 	if err != nil {
 		cfg.Logger.Error().Err(err).Msg("server: error reading CA certificate")
@@ -34,17 +34,16 @@ func NewServerCredentials(cfg *config.ServerConfig) (credentials.TransportCreden
 	}
 
 	tlsConf := &tls.Config{
-		Certificates:       []tls.Certificate{serverCert},
-		ClientAuth:         tls.RequireAndVerifyClientCert,
-		ClientCAs:          certPool,
-		InsecureSkipVerify: false,
-		MinVersion:         tls.VersionTLS13,
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    certPool,
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	return credentials.NewTLS(tlsConf), nil
 }
 
-func NewGRPCServerOptions(cfg *config.ServerConfig) ([]grpc.ServerOption, error) {
+func newGRPCServerOptions(cfg *config.ServerConfig) ([]grpc.ServerOption, error) {
 	opts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			interceptors.RealIPUnaryServerInterceptor(),
@@ -55,7 +54,7 @@ func NewGRPCServerOptions(cfg *config.ServerConfig) ([]grpc.ServerOption, error)
 	}
 
 	if cfg.IsTLSEnabled {
-		tlsCredentials, err := NewServerCredentials(cfg)
+		tlsCredentials, err := newServerCredentials(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +66,7 @@ func NewGRPCServerOptions(cfg *config.ServerConfig) ([]grpc.ServerOption, error)
 }
 
 func NewGRPCServer(cfg *config.ServerConfig) (*grpc.Server, error) {
-	grpcOpts, err := NewGRPCServerOptions(cfg)
+	grpcOpts, err := newGRPCServerOptions(cfg)
 	if err != nil {
 		cfg.Logger.Fatal().Err(err).Msg("server: configuration error")
 	}
