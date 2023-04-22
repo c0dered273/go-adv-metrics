@@ -11,7 +11,6 @@ import (
 	middleware2 "github.com/c0dered273/go-adv-metrics/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rs/zerolog"
 )
 
 //	@Title			Metrics collection API
@@ -318,13 +317,13 @@ func LoadMetricByURLRequestHandler(c *config.ServerConfig) http.HandlerFunc {
 	}
 }
 
-func Service(config *config.ServerConfig, logger zerolog.Logger) http.Handler {
+func Service(config *config.ServerConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware2.TrustedSubnet(config, logger))
+	r.Use(middleware2.TrustedSubnet(config))
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.Compress(5))

@@ -1,0 +1,13 @@
+syntax = "proto3";
+package proto;
+option go_package = "github.com/c0dered273/go-adv-metrics/internal/service";
+
+import "google/protobuf/empty.proto";
+import "metric.proto";
+
+service MetricsService {
+  rpc Get(GetMetricRequest) returns (GetMetricResponse);
+  rpc GetAll(google.protobuf.Empty) returns (GetAllMetricsResponse);
+  rpc Save(Metric) returns (Status);
+  rpc SaveAll(Metrics) returns (Status);
+}

@@ -13,7 +13,8 @@ import (
 // Если не передана строка соединения с БД, метрики хранятся локально в json файле.
 const (
 	// Address Адрес сервера
-	Address = "localhost:8080"
+	Address     = "localhost:8080"
+	GRPCAddress = "localhost:8081"
 	// StoreInterval Интервал сброса метрик на диск
 	StoreInterval = 300 * time.Second
 	// StoreFile Путь к файлу хранения метрик

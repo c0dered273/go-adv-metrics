@@ -16,7 +16,6 @@ import (
 	"github.com/c0dered273/go-adv-metrics/internal/metric"
 	"github.com/c0dered273/go-adv-metrics/internal/storage"
 	"github.com/go-resty/resty/v2"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -356,7 +355,7 @@ func TestService(t *testing.T) {
 			}
 
 			writer := httptest.NewRecorder()
-			h := Service(tt.srvCfg, log.Logger)
+			h := Service(tt.srvCfg)
 			h.ServeHTTP(writer, request)
 			res := writer.Result()
 			defer res.Body.Close()
@@ -512,7 +511,7 @@ jEGCtU5QakUL+EdUfTAcyuoi1P4t+jqv5c0SHD6dPem+WnjYzYCw77oSlTE=
 			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
 			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
-			h := Service(cfg, log.Logger)
+			h := Service(cfg)
 			h.ServeHTTP(writer, storeReq)
 			h.ServeHTTP(writer, loadReq)
 			res := writer.Result()
@@ -584,7 +583,7 @@ func Test_metricStore(t *testing.T) {
 			request2 := httptest.NewRequest(tt.method, tt.url2, nil)
 			request3 := httptest.NewRequest("GET", tt.url3, nil)
 			writer := httptest.NewRecorder()
-			h := Service(cfg, log.Logger)
+			h := Service(cfg)
 			h.ServeHTTP(writer, request1)
 			h.ServeHTTP(writer, request2)
 			h.ServeHTTP(writer, request3)
@@ -679,7 +678,7 @@ func Test_metricJSONLoad(t *testing.T) {
 			storeReq := httptest.NewRequest(tt.method, tt.storeURL, bytes.NewReader(tt.storeBody))
 			loadReq := httptest.NewRequest(tt.method, tt.loadURL, bytes.NewReader(tt.loadBody))
 			writer := httptest.NewRecorder()
-			h := Service(cfg, log.Logger)
+			h := Service(cfg)
 			h.ServeHTTP(writer, storeReq)
 			h.ServeHTTP(writer, loadReq)
 			res := writer.Result()

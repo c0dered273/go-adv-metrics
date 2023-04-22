@@ -1,5 +1,9 @@
 {
   "address": "localhost:8080",
+  "grpc_address": "localhost:8081",
+  "ca_cert_file": "cert/ca-cert.pem",
+  "server_cert_file": "cert/server-cert.pem",
+  "server_key_file": "cert/server-key.pem",
   "restore": true,
   "store_interval": "1s",
   "store_file": "/tmp/devops-metrics.db",
