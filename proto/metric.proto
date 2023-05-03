@@ -1,0 +1,33 @@
+syntax = "proto3";
+package proto;
+option go_package = "github.com/c0dered273/go-adv-metrics/internal/model";
+
+message Metric {
+  string id = 1;
+  string type = 2;
+  optional int64 delta = 3;
+  optional double value = 4;
+  string hash = 5;
+}
+
+message Metrics {
+  repeated Metric metrics = 1;
+}
+
+message GetMetricRequest {
+  string id = 1;
+  string type = 2;
+}
+
+message GetMetricResponse {
+  Metric metric = 1;
+}
+
+message GetAllMetricsResponse {
+  repeated Metric metrics = 1;
+}
+
+message Status {
+  int32 code = 1;
+  string message = 2;
+}

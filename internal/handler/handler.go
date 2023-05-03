@@ -323,6 +323,7 @@ func Service(config *config.ServerConfig) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware2.TrustedSubnet(config))
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(middleware2.GzipRequestDecoder)
 	r.Use(middleware.Compress(5))

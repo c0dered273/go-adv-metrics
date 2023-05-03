@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -24,8 +25,12 @@ var (
 	// KEY - ключ для подписи метрик должен быть одинаковым на сервере и агенте
 	// CRYPTO_KEY - имя файла с приватным RSA ключом, должен соответствовать публичному ключу клиента
 	// CONFIG - имя файла конфигурации в формате json
+	// CA_CERT_FILE - файл с корневым сертификатом
+	// SERVER_CERT_FILE - файл с серверным сертификатом
+	// SERVER_KEY_FILE - файл с серверным ключом
 	serverEnvVars = []string{
 		"ADDRESS",
+		"GRPC_ADDRESS",
 		"DATABASE_DSN",
 		"STORE_INTERVAL",
 		"STORE_FILE",
@@ -33,38 +38,59 @@ var (
 		"KEY",
 		"CRYPTO_KEY",
 		"CONFIG",
+		"TRUSTED_SUBNET",
+		"CA_CERT_FILE",
+		"SERVER_CERT_FILE",
+		"SERVER_KEY_FILE",
 	}
 )
 
 type ServerConfigFileParams struct {
 	Address            string        `json:"address"`
+	GRPCAddress        string        `json:"grpc_address"`
 	DatabaseDsn        string        `json:"database_dsn"`
 	StoreInterval      time.Duration `json:"store_interval"`
 	StoreFile          string        `json:"store_file"`
 	Restore            bool          `json:"restore"`
 	PrivateKeyFileName string        `json:"crypto_key"`
+	TrustedSubnet      string        `json:"trusted_subnet"`
+	CACertFile         string        `json:"ca_cert_file"`
+	ServerCertFile     string        `json:"server_cert_file"`
+	ServerKeyFile      string        `json:"server_key_file"`
 }
 
 type ServerInParams struct {
 	Address            string        `mapstructure:"address"`
+	GRPCAddress        string        `mapstructure:"grpc_address"`
 	DatabaseDsn        string        `mapstructure:"database_dsn"`
 	StoreInterval      time.Duration `mapstructure:"store_interval"`
 	StoreFile          string        `mapstructure:"store_file"`
 	Restore            bool          `mapstructure:"restore"`
 	Key                string        `mapstructure:"key"`
 	PrivateKeyFileName string        `mapstructure:"crypto_key"`
+	TrustedSubnet      *net.IPNet    `mapstructure:"trusted_subnet"`
+	CACertFile         string        `mapstructure:"ca_cert_file"`
+	ServerCertFile     string        `mapstructure:"server_cert_file"`
+	ServerKeyFile      string        `mapstructure:"server_key_file"`
 }
 
 // getServerPFlag получает конфигурацией сервера из командной строки.
 func getServerPFlag() Params {
-	pflag.StringP("address", "a", Address, "Server address:port")
+	pflag.StringP("address", "a", "", "Server address:port")
+	pflag.StringP("grpc_address", "g", "", "gRPC Server address:port")
 	pflag.StringP("databaseDsn", "d", "", "Database url")
-	pflag.DurationP("store_interval", "i", StoreInterval, "Writing metrics to disk interval")
-	pflag.StringP("filename", "f", StoreFile, "Storage filename")
+	pflag.StringP("store_interval", "i", "", "Writing metrics to disk interval")
+	pflag.StringP("filename", "f", "", "Storage filename")
 	pflag.StringP("key", "k", "", "Metric sign hash key")
-	pflag.BoolP("restore", "r", Restore, "Is restore metrics from disk")
+	pflag.StringP("restore", "r", "", "Is restore metrics from disk")
 	pflag.String("crypto-key", "", "Private RSA key")
-	pflag.StringP("config", "c", "", "Имя файла конфигурации")
+	pflag.StringP("config", "c", "", "Config file name")
+	pflag.StringP("trusted_subnet", "t", "", "Trusted subnet")
+
+	pflag.String("ca_cert_file", "", "CA certificate")
+	pflag.String("server_cert_file", "", "Server certificate")
+	pflag.String("server_key_file", "", "Server certificate key")
+
 	pflag.Parse()
 
 	params := make(map[string]any)
@@ -86,11 +112,22 @@ func getServerPFlag() Params {
 	return params
 }
 
+func getSrvDefaults() Params {
+	return map[string]any{
+		"address":        Address,
+		"grpc_address":   GRPCAddress,
+		"store_interval": StoreInterval,
+		"restore":        Restore,
+		"store_file":     StoreFile,
+	}
+}
+
 type ServerConfig struct {
 	*ServerInParams
-	Logger     zerolog.Logger
-	PrivateKey *rsa.PrivateKey
-	Repo       storage.Repository
+	Logger       zerolog.Logger
+	PrivateKey   *rsa.PrivateKey
+	IsTLSEnabled bool
+	Repo         storage.Repository
 }
 
 func getRSAPrivateKey(fileName string) (*rsa.PrivateKey, error) {
@@ -110,16 +147,17 @@ func getRSAPrivateKey(fileName string) (*rsa.PrivateKey, error) {
 
 // NewServerConfig возвращает структуру с необходимыми настройками сервера
 func NewServerConfig(ctx context.Context, logger zerolog.Logger) (*ServerConfig, error) {
+	defaults := getSrvDefaults()
 	pFlagCfg := getServerPFlag()
 	envCfg := getEnvCfg(serverEnvVars)
 
-	mergedCfg := merge(pFlagCfg, envCfg)
+	mergedCfg := merge(defaults, pFlagCfg, envCfg)
 	fileCfg, err := getFileCfg(mergedCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	mergedCfg = merge(fileCfg, pFlagCfg, envCfg)
+	mergedCfg = merge(defaults, fileCfg, pFlagCfg, envCfg)
 	serverParams := &ServerInParams{}
 	err = bindParams(mergedCfg, serverParams)
 	if err != nil {
@@ -150,6 +188,10 @@ func NewServerConfig(ctx context.Context, logger zerolog.Logger) (*ServerConfig,
 			return nil, err
 		}
 		srvCfg.PrivateKey = prvKey
+	}
+
+	if srvCfg.CACertFile != "" && srvCfg.ServerCertFile != "" && srvCfg.ServerKeyFile != "" {
+		srvCfg.IsTLSEnabled = true
 	}
 
 	return &srvCfg, nil

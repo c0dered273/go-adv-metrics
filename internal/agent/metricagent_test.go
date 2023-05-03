@@ -80,7 +80,7 @@ func TestMetricClient_SendUpdateContinuously(t *testing.T) {
 			}
 
 			upd := metric.ConcatSources([]metric.UpdatableMetric{tt.metric})
-			metricClient := NewMetricAgent(ctx, &wg, cfg)
+			metricClient, _ := NewMetricAgent(ctx, &wg, cfg)
 			metricClient.SendAllMetricsContinuously(upd)
 
 			time.Sleep(20 * time.Millisecond)

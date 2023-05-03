@@ -45,7 +45,11 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	metricClient := clients.NewMetricAgent(ctx, &wg, cfg)
+	metricClient, err := clients.NewMetricAgent(ctx, &wg, cfg)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("agent: init failed")
+	}
+
 	metricClient.SendAllMetricsContinuously(
 		metric.ConcatSources(
 			metric.NewMemStats(),

@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,6 +28,8 @@ func JSONtoByte(s string) []byte {
 }
 
 func TestService(t *testing.T) {
+	_, trustedSubnet, _ := net.ParseCIDR("10.0.0.0/24")
+
 	cfg := &config.ServerConfig{
 		ServerInParams: &config.ServerInParams{
 			Address: "localhost:8080",
@@ -42,17 +45,26 @@ func TestService(t *testing.T) {
 		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
 	}
 
+	cfgWithTrustedSubnet := &config.ServerConfig{
+		ServerInParams: &config.ServerInParams{
+			Address:       "localhost:8080",
+			TrustedSubnet: trustedSubnet,
+		},
+		Repo: storage.NewPersistenceRepo(storage.NewMemStorage()),
+	}
+
 	type want struct {
 		code  int
 		value string
 	}
 	tests := []struct {
-		name   string
-		srvCfg *config.ServerConfig
-		method string
-		url    string
-		body   []byte
-		want   want
+		name    string
+		srvCfg  *config.ServerConfig
+		method  string
+		url     string
+		headers map[string]string
+		body    []byte
+		want    want
 	}{
 		{
 			name:   "should response 200 when valid request #1",
@@ -292,6 +304,36 @@ func TestService(t *testing.T) {
 				code: 500,
 			},
 		},
+		{
+			name:    "should response 200 when valid ping request with trusted ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "10.0.0.11"},
+			want: want{
+				code: 200,
+			},
+		},
+		{
+			name:    "should response 403 when valid ping request with untrusted ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "10.0.22.11"},
+			want: want{
+				code: 403,
+			},
+		},
+		{
+			name:    "should response 400 when valid ping request with invalid ip",
+			srvCfg:  cfgWithTrustedSubnet,
+			method:  "GET",
+			url:     "http://localhost:8080/ping",
+			headers: map[string]string{"X-Real-IP": "FAKE_IP"},
+			want: want{
+				code: 400,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -304,6 +346,12 @@ func TestService(t *testing.T) {
 				request = httptest.NewRequest(tt.method, tt.url, bodyReader)
 			} else {
 				request = httptest.NewRequest(tt.method, tt.url, nil)
+			}
+
+			if len(tt.headers) != 0 {
+				for k, v := range tt.headers {
+					request.Header.Set(k, v)
+				}
 			}
 
 			writer := httptest.NewRecorder()

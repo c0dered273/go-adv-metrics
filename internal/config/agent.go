@@ -20,6 +20,8 @@ var (
 	// KEY - ключ для подписи метрик должен быть одинаковым на сервере и агенте
 	// CRYPTO_KEY - имя файла с публичным RSA ключом, должен соответствовать приватному ключу сервера
 	// CONFIG - имя файла конфигурации в формате json
+	// GRPC_CLIENT - использовать gRPC для передачи метрик
+	// CA_CERT_FILE - файл с корневым сертификатом
 	agentEnvVars = []string{
 		"ADDRESS",
 		"REPORT_INTERVAL",
@@ -27,6 +29,8 @@ var (
 		"KEY",
 		"CRYPTO_KEY",
 		"CONFIG",
+		"GRPC_CLIENT",
+		"CA_CERT_FILE",
 	}
 )
 
@@ -35,6 +39,8 @@ type AgentConfigFileParams struct {
 	ReportInterval    time.Duration `json:"report_interval"`
 	PollInterval      time.Duration `json:"poll_interval"`
 	PublicKeyFileName string        `json:"crypto_key"`
+	GRPCClient        bool          `json:"grpc_client"`
+	CACertFile        string        `json:"ca_cert_file"`
 }
 
 type AgentInParams struct {
@@ -44,16 +50,22 @@ type AgentInParams struct {
 	Key               string        `mapstructure:"key"`
 	PublicKeyFileName string        `mapstructure:"crypto_key"`
 	ConfigFileName    string        `mapstructure:"config"`
+	GRPCClient        bool          `mapstructure:"grpc_client"`
+	CACertFile        string        `mapstructure:"ca_cert_file"`
 }
 
 // getAgentPFlag получает конфигурацию агента из командной строки.
 func getAgentPFlag() Params {
-	pflag.StringP("address", "a", Address, "Server address:port")
-	pflag.DurationP("report_interval", "r", ReportInterval, "Send metrics to server interval")
-	pflag.DurationP("poll_interval", "p", PollInterval, "Collect metrics interval")
+	pflag.StringP("address", "a", "", "Server address:port")
+	pflag.StringP("report_interval", "r", "", "Send metrics to server interval")
+	pflag.StringP("poll_interval", "p", "", "Collect metrics interval")
 	pflag.StringP("key", "k", "", "Metric sign hash key")
 	pflag.String("crypto-key", "", "Public RSA key")
-	pflag.StringP("config", "c", "", "Имя файла конфигурации")
+	pflag.StringP("config", "c", "", "Config file")
+
+	pflag.StringP("grpc_client", "g", "", "Use gRPC client")
+	pflag.String("ca_cert_file", "", "CA certificate")
+
 	pflag.Parse()
 
 	params := make(map[string]any)
@@ -65,6 +77,15 @@ func getAgentPFlag() Params {
 		}
 	})
 	return params
+}
+
+func getAgentDefaults() Params {
+	return map[string]any{
+		"address":         Address,
+		"report_interval": ReportInterval,
+		"poll_interval":   PollInterval,
+		"grpc_client":     "false",
+	}
 }
 
 type AgentConfig struct {
@@ -90,16 +111,17 @@ func getRSAPublicKey(fileName string) (*rsa.PublicKey, error) {
 
 // NewAgentConfig отдает готовую структуру с необходимыми настройками для агента
 func NewAgentConfig(logger zerolog.Logger) (*AgentConfig, error) {
+	defaults := getAgentDefaults()
 	pFlagCfg := getAgentPFlag()
 	envCfg := getEnvCfg(agentEnvVars)
 
-	mergedCfg := merge(pFlagCfg, envCfg)
+	mergedCfg := merge(defaults, pFlagCfg, envCfg)
 	fileCfg, err := getFileCfg(mergedCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	mergedCfg = merge(fileCfg, pFlagCfg, envCfg)
+	mergedCfg = merge(defaults, fileCfg, pFlagCfg, envCfg)
 	agentParams := &AgentInParams{}
 	err = bindParams(mergedCfg, agentParams)
 	if err != nil {
